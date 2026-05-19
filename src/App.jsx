@@ -1,31 +1,90 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+
+import { useState, useEffect } from "react";
+
 import Sidebar from "./components/Sidebar";
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Layanan from "./pages/Layanan";
 import Perawat from "./pages/Perawat";
 import Transaksi from "./pages/Transaksi";
 
-// Komponen pembungkus untuk memisahkan halaman yang butuh Sidebar (Dashboard dll) dengan yang tidak (Login)
 function AdminLayout() {
   const location = useLocation();
+
   const isLoginPage = location.pathname === "/";
 
-  return (
-    <div className="flex bg-[#F4F7FE] min-h-screen">
-      {/* Tampilkan sidebar hanya jika BUKAN di halaman login */}
-      {!isLoginPage && <Sidebar />}
+  // ================= SIDEBAR STATE =================
 
-      {/* Area konten utama, beri margin-left jika ada sidebar */}
-      <div className={`flex-1 ${!isLoginPage ? "ml-64" : ""}`}>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/layanan" element={<Layanan />} />
-          <Route path="/perawat" element={<Perawat />} />
-          <Route path="/transaksi" element={<Transaksi />} />
-        </Routes>
-      </div>
+  const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
+
+  // ================= RESPONSIVE =================
+
+  useEffect(() => {
+    const handleResize = () => {
+      // AUTO COLLAPSE MOBILE
+      if (window.innerWidth < 768) {
+        setIsOpen(false);
+      }
+
+      // AUTO EXPAND DESKTOP
+      else {
+        setIsOpen(true);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    handleResize();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return (
+    <div className="bg-[#F4F7FE] min-h-screen">
+      
+      {/* ================= SIDEBAR ================= */}
+
+      {!isLoginPage && (
+        <Sidebar
+          isOpen={isOpen}
+          setIsOpen={setIsOpen}
+        />
+      )}
+
+      {/* ================= ROUTES ================= */}
+
+      <Routes>
+        <Route path="/" element={<Login />} />
+
+        <Route
+          path="/dashboard"
+          element={<Dashboard isOpen={isOpen} />}
+        />
+
+        <Route
+          path="/layanan"
+          element={<Layanan />}
+        />
+
+        <Route
+          path="/perawat"
+          element={<Perawat />}
+        />
+
+        <Route
+          path="/transaksi"
+          element={<Transaksi />}
+        />
+      </Routes>
     </div>
   );
 }

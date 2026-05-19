@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   LayoutDashboard,
@@ -8,10 +8,12 @@ import {
   Headset,
   Menu,
   MoreVertical,
+  LogOut,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     {
@@ -120,11 +122,23 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
       {/* ================= FOOTER ================= */}
 
-      {isOpen && (
-        <div className="p-4 border-t border-slate-800 text-center text-xs text-slate-500">
-          v1.0.0 - Tubes PBL
-        </div>
-      )}
+      <div className="p-4 border-t border-slate-800 flex flex-col gap-2">
+        <button
+          onClick={() => navigate("/")}
+          className={`flex items-center ${
+            isOpen ? "gap-3 px-4 justify-start" : "justify-center"
+          } py-3 rounded-lg text-sm font-medium transition-all text-red-400 hover:bg-red-500/10 hover:text-red-300`}
+        >
+          <LogOut size={20} />
+          {isOpen && <span>Logout</span>}
+        </button>
+
+        {isOpen && (
+          <div className="text-center text-xs text-slate-500">
+            v1.0.0 - Tubes PBL
+          </div>
+        )}
+      </div>
     </div>
   );
 }

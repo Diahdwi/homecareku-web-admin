@@ -62,7 +62,11 @@ function AdminLayout() {
 
           <Route
             path="/layanan"
-            element={<Layanan />}
+            element={
+              <Layanan
+                isOpen={isOpen}
+              />
+            }
           />
 
           <Route

@@ -1,14 +1,14 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-
 import {
   LayoutDashboard,
   Receipt,
   Stethoscope,
   FolderHeart,
-  Headset,
+  Users,
   Menu,
-  MoreVertical,
+  ChevronLeft,
   LogOut,
+  X,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -19,126 +19,218 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     {
       name: "Dashboard",
       path: "/dashboard",
-      icon: <LayoutDashboard size={20} />,
+      icon: <LayoutDashboard size={22} />,
     },
     {
       name: "Transaksi",
       path: "/transaksi",
-      icon: <Receipt size={20} />,
-    },
-    {
-      name: "Perawat",
-      path: "/perawat",
-      icon: <Stethoscope size={20} />,
+      icon: <Receipt size={22} />,
     },
     {
       name: "Layanan",
       path: "/layanan",
-      icon: <FolderHeart size={20} />,
+      icon: <FolderHeart size={22} />,
+    },
+    {
+      name: "Perawat",
+      path: "/perawat",
+      icon: <Stethoscope size={22} />,
+    },
+    {
+      name: "Pasien",
+      path: "/pasien",
+      icon: <Users size={22} />,
     },
   ];
 
   return (
-    <div
-      className={`${
-        isOpen ? "w-64" : "w-20"
-      } h-screen bg-slate-900 text-white flex flex-col fixed left-0 top-0 z-50 transition-all duration-300`}
-    >
-      {/* ================= HEADER ================= */}
+    <>
+      {/* Overlay Mobile */}
+      {isOpen && (
+        <div
+          className="
+            lg:hidden
+            fixed
+            inset-0
+            bg-black/40
+            z-40
+          "
+          onClick={() => setIsOpen(false)}
+        />
+      )}
 
-      {isOpen ? (
-        // ===== EXPAND =====
-        <div className="p-4 border-b border-slate-800">
-          <div className="flex items-center justify-between">
-            
-            {/* PROFILE */}
-            <div className="flex items-center gap-3">
-              
-              <div className="w-12 h-12 rounded-full bg-[#F28B0C]/20 flex items-center justify-center">
-                <div className="w-9 h-9 rounded-full bg-[#F28B0C] flex items-center justify-center">
-                  <Headset size={18} className="text-white" />
+      <aside
+        className={`
+          fixed
+          left-0
+          top-0
+          h-screen
+          bg-white
+          shadow-lg
+          z-50
+          transition-all
+          duration-300
+          flex
+          flex-col
+
+          ${
+            isOpen
+              ? "w-[280px]"
+              : "w-[90px]"
+          }
+
+          lg:rounded-r-[24px]
+        `}
+      >
+        {/* HEADER */}
+        <div className="px-5 py-6 border-b border-gray-100">
+
+          {isOpen ? (
+            <div className="flex items-center justify-between">
+
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src="/logo.png"
+                  alt="Logo"
+                  className="w-12 h-12 object-contain flex-shrink-0"
+                />
+
+                <div>
+                  <h1 className="font-bold text-xl text-[#214E8A]">
+                    HomecareKu
+                  </h1>
+
+                  <p className="text-xs text-gray-500">
+                    Admin Dashboard
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <h1 className="text-xl font-bold tracking-wider text-[#F28B0C]">
-                  HOMECAREKU
-                </h1>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="
+                  w-10
+                  h-10
+                  flex
+                  items-center
+                  justify-center
+                  rounded-lg
+                  hover:bg-gray-100
+                  flex-shrink-0
+                "
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-                <p className="text-xs text-slate-400 mt-1">
-                  Admin Dashboard
-                </p>
-              </div>
             </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
 
-            {/* CLOSE BUTTON */}
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white transition-all p-1 rounded-md hover:bg-slate-800"
-            >
-              <MoreVertical size={20} />
-            </button>
-          </div>
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="w-12 h-12 object-contain"
+              />
+
+              <button
+                onClick={() => setIsOpen(true)}
+                className="
+                  w-10
+                  h-10
+                  flex
+                  items-center
+                  justify-center
+                  rounded-lg
+                  hover:bg-gray-100
+                "
+              >
+                <Menu size={20} />
+              </button>
+
+            </div>
+          )}
+
         </div>
-      ) : (
-        // ===== COLLAPSE =====
-        <div className="p-4 border-b border-slate-800 flex justify-center">
+
+        {/* MENU */}
+        <div className="flex-1 px-4 py-5">
+
+          {isOpen && (
+            <p className="text-xs uppercase text-gray-400 font-semibold mb-4">
+              Menu
+            </p>
+          )}
+
+          <nav className="space-y-2">
+            {menuItems.map((item) => {
+              const active =
+                location.pathname === item.path;
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`
+                    flex
+                    items-center
+                    h-14
+                    rounded-xl
+                    transition-all
+
+                    ${
+                      active
+                        ? "bg-[#214E8A] text-white"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }
+
+                    ${
+                      isOpen
+                        ? "px-4 gap-3"
+                        : "justify-center"
+                    }
+                  `}
+                >
+                  {item.icon}
+
+                  {isOpen && (
+                    <span>{item.name}</span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-4 border-t border-gray-100">
+
           <button
-            onClick={() => setIsOpen(true)}
-            className="text-slate-400 hover:text-white transition-all p-1 rounded-md hover:bg-slate-800"
-          >
-            <Menu size={24} />
-          </button>
-        </div>
-      )}
+            onClick={() => navigate("/")}
+            className={`
+              w-full
+              h-14
+              rounded-xl
+              flex
+              items-center
+              text-red-500
+              hover:bg-red-50
 
-      {/* ================= MENU ================= */}
-
-      <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center ${
+              ${
                 isOpen
-                  ? "gap-3 px-4 justify-start"
+                  ? "px-4 gap-3"
                   : "justify-center"
-              } py-3 rounded-lg text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-[#F28B0C]/10 text-[#F28B0C] border border-[#F28B0C]/30 font-bold"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              {item.icon}
+              }
+            `}
+          >
+            <LogOut size={22} />
 
-              {isOpen && item.name}
-            </Link>
-          );
-        })}
-      </nav>
+            {isOpen && (
+              <span>Keluar</span>
+            )}
+          </button>
 
-      {/* ================= FOOTER ================= */}
-
-      <div className="p-4 border-t border-slate-800 flex flex-col gap-2">
-        <button
-          onClick={() => navigate("/")}
-          className={`flex items-center ${
-            isOpen ? "gap-3 px-4 justify-start" : "justify-center"
-          } py-3 rounded-lg text-sm font-medium transition-all text-red-400 hover:bg-red-500/10 hover:text-red-300`}
-        >
-          <LogOut size={20} />
-          {isOpen && <span>Logout</span>}
-        </button>
-
-        {isOpen && (
-          <div className="text-center text-xs text-slate-500">
-            v1.0.0 - Tubes PBL
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </aside>
+    </>
   );
 }

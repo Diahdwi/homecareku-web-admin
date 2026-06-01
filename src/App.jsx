@@ -1,10 +1,4 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useLocation,
-} from "react-router-dom";
-
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import Sidebar from "./components/Sidebar";
@@ -17,31 +11,21 @@ import Transaksi from "./pages/Transaksi";
 
 function AdminLayout() {
   const location = useLocation();
-
   const isLoginPage = location.pathname === "/";
 
-  // ================= SIDEBAR STATE =================
-
-  const [isOpen, setIsOpen] = useState(window.innerWidth >= 768);
-
-  // ================= RESPONSIVE =================
+  // Default sidebar terbuka di desktop
+  const [isOpen, setIsOpen] = useState(
+    window.innerWidth >= 1024
+  );
 
   useEffect(() => {
     const handleResize = () => {
-      // AUTO COLLAPSE MOBILE
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 1024) {
         setIsOpen(false);
-      }
-
-      // AUTO EXPAND DESKTOP
-      else {
-        setIsOpen(true);
       }
     };
 
     window.addEventListener("resize", handleResize);
-
-    handleResize();
 
     return () => {
       window.removeEventListener("resize", handleResize);
@@ -49,10 +33,9 @@ function AdminLayout() {
   }, []);
 
   return (
-    <div className="bg-[#F4F7FE] min-h-screen">
-      
-      {/* ================= SIDEBAR ================= */}
+    <div className="bg-[#ECECEC] min-h-screen">
 
+      {/* SIDEBAR */}
       {!isLoginPage && (
         <Sidebar
           isOpen={isOpen}
@@ -60,41 +43,48 @@ function AdminLayout() {
         />
       )}
 
-      {/* ================= ROUTES ================= */}
+      {/* ROUTING */}
+      <main>
+        <Routes>
+          <Route
+            path="/"
+            element={<Login />}
+          />
 
-      <Routes>
-        <Route path="/" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <Dashboard
+                isOpen={isOpen}
+              />
+            }
+          />
 
-        <Route
-          path="/dashboard"
-          element={<Dashboard isOpen={isOpen} />}
-        />
+          <Route
+            path="/layanan"
+            element={<Layanan />}
+          />
 
-        <Route
-          path="/layanan"
-          element={<Layanan />}
-        />
+          <Route
+            path="/perawat"
+            element={<Perawat />}
+          />
 
-        <Route
-          path="/perawat"
-          element={<Perawat />}
-        />
+          <Route
+            path="/transaksi"
+            element={<Transaksi />}
+          />
+        </Routes>
+      </main>
 
-        <Route
-          path="/transaksi"
-          element={<Transaksi />}
-        />
-      </Routes>
     </div>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <Router>
       <AdminLayout />
     </Router>
   );
 }
-
-export default App;

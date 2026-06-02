@@ -6,7 +6,11 @@ import Sidebar from "./components/Sidebar";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Layanan from "./pages/Layanan";
-import Perawat from "./pages/Perawat";
+import Perawat from "./pages/Perawat/Perawat1";
+import Perawat2 from "./pages/Perawat/Perawat2";
+import DetailPerawat from "./pages/Perawat/detail_perawat";
+import CapaianPerawat from "./pages/Perawat/Capaian_perawat";
+import TambahPerawat from "./pages/Perawat/Tambah_perawat";
 import Transaksi from "./pages/Transaksi";
 
 function AdminLayout() {
@@ -71,7 +75,27 @@ function AdminLayout() {
 
           <Route
             path="/perawat"
-            element={<Perawat />}
+            element={<Perawat isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/perawat2"
+            element={<Perawat2 isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/detail_perawat"
+            element={<DetailPerawat isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/capaian_perawat"
+            element={<CapaianPerawat isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/tambah_perawat"
+            element={<TambahPerawat isOpen={isOpen} />}
           />
 
           <Route

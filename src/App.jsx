@@ -11,6 +11,10 @@ import Perawat2 from "./pages/Perawat/Perawat2";
 import DetailPerawat from "./pages/Perawat/detail_perawat";
 import CapaianPerawat from "./pages/Perawat/Capaian_perawat";
 import TambahPerawat from "./pages/Perawat/Tambah_perawat";
+import Pasien from "./pages/Pasien/Pasien1";
+import Pasien2 from "./pages/Pasien/Pasien2";
+import DetailPasien from "./pages/Pasien/detail_pasien";
+import RekamMedisPasien from "./pages/Pasien/rekam_medis_pasien";
 import Transaksi from "./pages/Transaksi";
 
 function AdminLayout() {
@@ -96,6 +100,26 @@ function AdminLayout() {
           <Route
             path="/tambah_perawat"
             element={<TambahPerawat isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/pasien"
+            element={<Pasien isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/pasien2"
+            element={<Pasien2 isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/detail_pasien/:id"
+            element={<DetailPasien isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/rekam_medis_pasien"
+            element={<RekamMedisPasien isOpen={isOpen} />}
           />
 
           <Route

@@ -7,6 +7,7 @@ export default function Perawat2({ isOpen }) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("Semua");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const nurses = [
     {
@@ -30,6 +31,12 @@ export default function Perawat2({ isOpen }) {
   ];
 
   const filterOptions = ["Semua", "Sedang Bertugas", "Tidak Bertugas"];
+
+  const filteredNurses = nurses.filter(nurse => {
+    const matchesSearch = nurse.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = activeFilter === "Semua" || nurse.status === activeFilter;
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div
@@ -95,6 +102,8 @@ export default function Perawat2({ isOpen }) {
             <input
               type="text"
               placeholder="Cari Perawat"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-4 pr-10 py-2.5 rounded-full border border-gray-400 focus:outline-none w-[240px] text-sm"
             />
             <Search size={18} className="absolute right-4 top-3 text-gray-500" />
@@ -121,7 +130,7 @@ export default function Perawat2({ isOpen }) {
         </div>
 
         {/* List Items */}
-        {nurses.map((nurse) => (
+        {filteredNurses.map((nurse) => (
           <div 
             key={nurse.id} 
             className="bg-white rounded-full py-4 px-8 grid grid-cols-[1.5fr_1fr_1fr_1fr] items-center shadow-sm cursor-pointer hover:shadow-md transition-shadow"

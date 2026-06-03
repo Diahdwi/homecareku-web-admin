@@ -124,7 +124,7 @@ function AdminLayout() {
 
           <Route
             path="/transaksi"
-            element={<Transaksi />}
+            element={<Transaksi isOpen={isOpen} />}
           />
         </Routes>
       </main>

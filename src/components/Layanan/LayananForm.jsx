@@ -1,4 +1,4 @@
-import { X, Upload } from "lucide-react";
+import { X, Upload, Star } from "lucide-react"; // Ditambahkan ikon Star
 import { useState } from "react";
 
 export default function LayananForm({
@@ -9,7 +9,7 @@ export default function LayananForm({
     nama: "",
     harga: "",
     durasi: "",
-    rating: "",
+    rating: "0", // Default dimulai dari 0 karena layanan baru belum punya ulasan
     gambar: "",
     deskripsi: "",
   });
@@ -120,7 +120,7 @@ export default function LayananForm({
           name="nama"
           value={formData.nama}
           onChange={handleChange}
-          className="w-full border rounded-xl p-3"
+          className="w-full border rounded-xl p-3 outline-none focus:border-[#214E8A]"
         />
       </div>
 
@@ -135,7 +135,7 @@ export default function LayananForm({
           name="deskripsi"
           value={formData.deskripsi}
           onChange={handleChange}
-          className="w-full border rounded-xl p-3"
+          className="w-full border rounded-xl p-3 outline-none focus:border-[#214E8A]"
         />
       </div>
 
@@ -150,7 +150,7 @@ export default function LayananForm({
           name="harga"
           value={formData.harga}
           onChange={handleChange}
-          className="w-full border rounded-xl p-3"
+          className="w-full border rounded-xl p-3 outline-none focus:border-[#214E8A]"
         />
       </div>
 
@@ -165,23 +165,30 @@ export default function LayananForm({
           name="durasi"
           value={formData.durasi}
           onChange={handleChange}
-          className="w-full border rounded-xl p-3"
+          className="w-full border rounded-xl p-3 outline-none focus:border-[#214E8A]"
         />
       </div>
 
-      {/* RATING */}
+      {/* RATING (Hanya tampilan info statis bernilai 0) */}
       <div className="mb-6">
-        <label className="font-semibold block mb-2">
-          Rating
+        <label className="font-semibold block mb-1">
+          Rating Awal
         </label>
-
-        <input
-          type="text"
-          name="rating"
-          value={formData.rating}
-          onChange={handleChange}
-          className="w-full border rounded-xl p-3"
-        />
+        
+        <div className="flex items-center gap-2 py-2">
+          {/* Badge Rating Default 0 */}
+          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+            <Star className="text-amber-500 fill-amber-500" size={18} />
+            <span className="font-bold text-amber-700 text-base">
+              {formData.rating}
+            </span>
+          </div>
+          
+          {/* Keterangan */}
+          <p className="text-xs text-gray-500 italic">
+            * Layanan baru otomatis dimulai dari rating 0.
+          </p>
+        </div>
       </div>
 
       {/* BUTTON */}
@@ -194,6 +201,7 @@ export default function LayananForm({
           py-3
           rounded-xl
           hover:bg-[#183965]
+          transition-colors
         "
       >
         Simpan Layanan

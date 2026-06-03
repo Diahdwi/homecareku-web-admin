@@ -1,3 +1,5 @@
+import { Star } from "lucide-react"; // Ditambahkan ikon bintang agar lebih informatif
+
 export default function LayananEditForm({
   formData,
   setFormData,
@@ -104,26 +106,26 @@ export default function LayananEditForm({
         />
       </div>
 
-      {/* RATING */}
+      {/* RATING (Hanya teks rata-rata ulasan, tanpa kolom input) */}
       <div className="mb-4">
-        <label className="font-semibold block mb-2">
-          Rating
+        <label className="font-semibold block mb-1">
+          Rating Layanan
         </label>
-
-        <input
-          type="text"
-          name="rating"
-          value={formData.rating || ""}
-          onChange={handleChange}
-          className="
-            w-full
-            border
-            rounded-xl
-            p-3
-            outline-none
-            focus:border-[#214E8A]
-          "
-        />
+        
+        <div className="flex items-center gap-2 py-2">
+          {/* Badge Rating */}
+          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+            <Star className="text-amber-500 fill-amber-500" size={18} />
+            <span className="font-bold text-amber-700 text-base">
+              {formData.rating || "0.0"}
+            </span>
+          </div>
+          
+          {/* Keterangan tambahan */}
+          <p className="text-xs text-gray-500 italic">
+            * Diambil otomatis dari rata-rata rating semua ulasan pasien.
+          </p>
+        </div>
       </div>
 
     </div>

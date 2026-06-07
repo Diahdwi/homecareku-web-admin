@@ -9,7 +9,7 @@ export default function Pasien1({ isOpen }) {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
@@ -31,7 +31,7 @@ export default function Pasien1({ isOpen }) {
   }, []);
 
   // Filter logic
-  const filteredPatients = patients.filter(patient => 
+  const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -47,9 +47,8 @@ export default function Pasien1({ isOpen }) {
 
   return (
     <div
-      className={`bg-[#ECECEC] min-h-screen p-5 transition-all duration-300 ${
-        isOpen ? "ml-[280px]" : "ml-[90px]"
-      }`}
+      className={`bg-[#ECECEC] min-h-screen p-5 transition-all duration-300 ${isOpen ? "ml-[280px]" : "ml-[90px]"
+        }`}
     >
       <Header />
 
@@ -99,8 +98,8 @@ export default function Pasien1({ isOpen }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
               {/* Patient Cards (Styled like LayananCard) */}
               {paginatedPatients.map((patient) => (
-                <div 
-                  key={patient.id} 
+                <div
+                  key={patient.id}
                   className="bg-white rounded-3xl p-5 border border-gray-200 shadow-sm relative flex flex-col justify-between min-h-[160px] cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                   onClick={() => navigate(`/detail_pasien/${patient.id}`)}
                 >
@@ -117,12 +116,12 @@ export default function Pasien1({ isOpen }) {
                       </h2>
 
                       <div className="space-y-1.5 text-sm text-gray-600">
-                        <div className="flex items-center gap-2 text-xs truncate">
-                          <Phone size={15} className="shrink-0 text-blue-600" />
+                        <div className="flex items-center gap-2 text-sm truncate">
+                          <Phone size={16} className="shrink-0 text-sm text-gray-500" />
                           <span className="truncate">{patient.phone || "-"}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <ClipboardList size={15} className="shrink-0 text-blue-600" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <ClipboardList size={16} className="shrink-0 text-gray-500" />
                           <span>Total Tindakan: {patient.totalTindakan}</span>
                         </div>
                       </div>

@@ -216,7 +216,7 @@ export default function Transaksi({ isOpen }) {
   return (
     <div
       className={`bg-[#ECECEC] min-h-screen p-5 transition-all duration-300 ${
-        isOpen ? "lg:ml-[280px]" : "lg:ml-[90px]"
+        isOpen ? "ml-[280px]" : "ml-[90px]"
       }`}
     >
       <Header />

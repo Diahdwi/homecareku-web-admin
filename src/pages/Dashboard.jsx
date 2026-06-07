@@ -71,8 +71,8 @@ export default function Dashboard({ isOpen }) {
   duration-300
 
   ${isOpen
-    ? "lg:ml-[280px]"
-    : "lg:ml-[90px]"
+    ? "ml-[280px]"
+    : "ml-[90px]"
   }
 `}
     >

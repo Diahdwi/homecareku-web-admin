@@ -180,16 +180,16 @@ export default function Perawat1({ isOpen }) {
                       </h2>
                       
                       <div className="space-y-1.5 text-sm text-gray-600">
-                        <div className="flex items-center gap-2 text-xs truncate">
-                          <Award size={15} className="shrink-0 text-blue-600" />
+                        <div className="flex items-center gap-2 text-sm truncate">
+                          <Award size={15} className="shrink-0 text-gray-600" />
                           <span className="truncate" title={nurse.noSertifikat}>Sertifikat: {nurse.noSertifikat}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <Briefcase size={15} className="shrink-0 text-blue-600" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <Briefcase size={15} className="shrink-0 text-gray-600" />
                           <span>Status: {nurse.status}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <MapPin size={15} className="shrink-0 text-blue-600" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <MapPin size={15} className="shrink-0 text-gray-600" />
                           <span>Lokasi: {nurse.lokasi}</span>
                         </div>
                       </div>

@@ -170,6 +170,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                   location.pathname.startsWith("/detail_perawat") ||
                   location.pathname.startsWith("/capaian_perawat") ||
                   location.pathname.startsWith("/tambah_perawat")
+                )) ||
+                (item.path === "/pasien" && (
+                  location.pathname.startsWith("/pasien") ||
+                  location.pathname.startsWith("/detail_pasien") ||
+                  location.pathname.startsWith("/rekam_medis_pasien")
                 ));
 
               return (

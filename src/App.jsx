@@ -118,7 +118,7 @@ function AdminLayout() {
           />
 
           <Route
-            path="/rekam_medis_pasien"
+            path="/rekam_medis_pasien/:id"
             element={<RekamMedisPasien isOpen={isOpen} />}
           />
 

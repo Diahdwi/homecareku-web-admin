@@ -315,3 +315,155 @@ export async function getNurseCapaian(nurseId) {
     return [];
   }
 }
+
+// Subscribe to real-time updates for active patients
+export function subscribePatients(onUpdate, onError) {
+  const q = query(
+    collection(db, "users"), 
+    where("id_role", "==", "/roles/3")
+  );
+  
+  const pesananQuery = collection(db, "pesanan");
+
+  let latestPatients = [];
+  let latestPesanan = [];
+
+  const checkAndEmit = () => {
+    const countMap = {};
+    latestPesanan.forEach(p => {
+      const pid = p.id_pasien;
+      if (pid) {
+        countMap[pid] = (countMap[pid] || 0) + 1;
+      }
+    });
+
+    const mapped = latestPatients.map(docData => {
+      const avatarIdx = docData.avatar_index !== undefined ? parseInt(docData.avatar_index) : -1;
+      return {
+        id: docData.id,
+        name: docData.nama || "",
+        email: docData.email || "",
+        phone: docData.no_hp || "",
+        alamat: docData.alamat || "",
+        jenisKelamin: docData.jenis_kelamin || "",
+        tanggalLahir: docData.tanggal_lahir instanceof Timestamp 
+          ? docData.tanggal_lahir.toDate().toISOString().split('T')[0] 
+          : docData.tanggal_lahir || "",
+        avatarIndex: avatarIdx,
+        photoBase64: docData.photoBase64 || null,
+        img: docData.photoBase64 
+          ? `data:image/jpeg;base64,${docData.photoBase64}` 
+          : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder),
+        totalTindakan: countMap[docData.id] || 0,
+        isActive: docData.is_active !== false
+      };
+    }).filter(p => p.isActive);
+
+    onUpdate(mapped);
+  };
+
+  const unsubscribeUsers = onSnapshot(q, (snapshot) => {
+    const list = [];
+    snapshot.forEach(docSnap => {
+      list.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    latestPatients = list;
+    checkAndEmit();
+  }, onError);
+
+  const unsubscribePesanan = onSnapshot(pesananQuery, (snapshot) => {
+    const list = [];
+    snapshot.forEach(docSnap => {
+      list.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    latestPesanan = list;
+    checkAndEmit();
+  }, onError);
+
+  return () => {
+    unsubscribeUsers();
+    unsubscribePesanan();
+  };
+}
+
+// Get patient by ID
+export async function getPatientById(id) {
+  try {
+    const docRef = doc(db, "users", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      throw new Error("Patient not found");
+    }
+    const data = docSnap.data();
+    
+    // Fetch their total order count
+    const q = query(
+      collection(db, "pesanan"),
+      where("id_pasien", "==", id)
+    );
+    const querySnapshot = await getDocs(q);
+    const totalTindakan = querySnapshot.size;
+
+    const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
+
+    return {
+      id: docSnap.id,
+      name: data.nama || "",
+      email: data.email || "",
+      phone: data.no_hp || "",
+      alamat: data.alamat || "",
+      jenisKelamin: data.jenis_kelamin || "",
+      tanggalLahir: data.tanggal_lahir instanceof Timestamp 
+        ? data.tanggal_lahir.toDate().toISOString().split('T')[0] 
+        : data.tanggal_lahir || "",
+      avatarIndex: avatarIdx,
+      photoBase64: data.photoBase64 || null,
+      img: data.photoBase64 
+        ? `data:image/jpeg;base64,${data.photoBase64}` 
+        : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder),
+      totalTindakan: totalTindakan,
+      isActive: data.is_active !== false
+    };
+  } catch (error) {
+    console.error("Error in getPatientById:", error);
+    throw error;
+  }
+}
+
+// Delete patient (sets is_active to false)
+export async function deletePatient(id) {
+  try {
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, { is_active: false });
+  } catch (error) {
+    console.error("Error in deletePatient:", error);
+    throw error;
+  }
+}
+export async function getPatientMedicalRecords(patientId) {
+  try {
+    const q = query(
+      collection(db, "pesanan"),
+      where("id_pasien", "==", patientId)
+    );
+    const querySnapshot = await getDocs(q);
+    const records = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      records.push({
+        id: doc.id,
+        layanan: data.nama_layanan || data.layanan || "Layanan",
+        tanggal: data.tanggal_booking instanceof Timestamp
+          ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+          : data.tanggal_booking || "",
+        waktu: data.waktu || "",
+        perawat: data.nama_perawat || data.perawat || "",
+        catatan: data.rekam_medis || data.catatan || ""
+      });
+    });
+    return records;
+  } catch (error) {
+    console.error("Error in getPatientMedicalRecords:", error);
+    throw error;
+  }
+}

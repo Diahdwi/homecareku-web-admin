@@ -1,4 +1,4 @@
-import { X, Upload, Star } from "lucide-react"; // Ditambahkan ikon Star
+import { X, Upload, Star, Save } from "lucide-react"; // Ditambahkan ikon Star, Save
 import { useState } from "react";
 
 export default function LayananForm({
@@ -26,12 +26,14 @@ export default function LayananForm({
 
     if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
-
-    setFormData({
-      ...formData,
-      gambar: imageUrl,
-    });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({
+        ...formData,
+        gambar: reader.result,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = () => {
@@ -202,8 +204,13 @@ export default function LayananForm({
           rounded-xl
           hover:bg-[#183965]
           transition-colors
+          flex
+          justify-center
+          items-center
+          gap-2
         "
       >
+        <Save size={18} />
         Simpan Layanan
       </button>
 

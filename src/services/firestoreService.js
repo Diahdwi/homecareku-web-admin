@@ -9,6 +9,7 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc,
+  addDoc,
   Timestamp,
   onSnapshot
 } from "firebase/firestore";
@@ -467,3 +468,81 @@ export async function getPatientMedicalRecords(patientId) {
     throw error;
   }
 }
+
+// Subscribe to real-time updates for Layanan
+export function subscribeLayanan(onUpdate, onError) {
+  const q = collection(db, "layanan");
+  return onSnapshot(q, (querySnapshot) => {
+    const list = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      list.push({
+        id: doc.id,
+        nama: data.nama_layanan || data.nama || "",
+        harga: data.harga || "",
+        durasi: data.durasi || "",
+        rating: data.rating || "0",
+        gambar: data.gambar || "",
+        deskripsi: data.deskripsi_umum || data.deksripsi_umum || data.deskripsi || ""
+      });
+    });
+    onUpdate(list);
+  }, (error) => {
+    console.error("Error subscribing to layanan:", error);
+    if (onError) onError(error);
+  });
+}
+
+// Add new Layanan
+export async function addLayanan(layananData) {
+  try {
+    const docRef = await addDoc(collection(db, "layanan"), {
+      nama_layanan: layananData.nama,
+      nama: layananData.nama,
+      harga: layananData.harga,
+      durasi: layananData.durasi,
+      rating: layananData.rating || "0",
+      gambar: layananData.gambar || "",
+      deskripsi_umum: layananData.deskripsi || "",
+      deksripsi_umum: layananData.deskripsi || "",
+      deskripsi: layananData.deskripsi || ""
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error in addLayanan:", error);
+    throw error;
+  }
+}
+
+// Update Layanan
+export async function updateLayanan(id, layananData) {
+  try {
+    const docRef = doc(db, "layanan", id);
+    await updateDoc(docRef, {
+      nama_layanan: layananData.nama,
+      nama: layananData.nama,
+      harga: layananData.harga,
+      durasi: layananData.durasi,
+      rating: layananData.rating || "0",
+      gambar: layananData.gambar || "",
+      deskripsi_umum: layananData.deskripsi || "",
+      deksripsi_umum: layananData.deskripsi || "",
+      deskripsi: layananData.deskripsi || ""
+    });
+  } catch (error) {
+    console.error("Error in updateLayanan:", error);
+    throw error;
+  }
+}
+
+// Delete Layanan
+export async function deleteLayanan(id) {
+  try {
+    const docRef = doc(db, "layanan", id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error in deleteLayanan:", error);
+    throw error;
+  }
+}
+

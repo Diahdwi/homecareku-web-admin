@@ -1,7 +1,9 @@
+import { useState } from "react";
 import {
   X,
   Save,
   Trash2,
+  Camera,
 } from "lucide-react";
 
 import LayananEditForm from "./LayananEditForm";
@@ -14,6 +16,7 @@ export default function LayananDetail({
   onDelete,
   onClose,
 }) {
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
   // ====================
   // HANDLE IMAGE
@@ -24,12 +27,14 @@ export default function LayananDetail({
 
     if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
-
-    setFormData({
-      ...formData,
-      gambar: imageUrl,
-    });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({
+        ...formData,
+        gambar: reader.result,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -68,42 +73,52 @@ export default function LayananDetail({
       </div>
 
       {/* GAMBAR */}
-      <div className="mb-6">
+      <div className="mb-6 relative">
+        <div className="relative group shrink-0">
+          <div
+            onClick={() => setShowPhotoOptions(!showPhotoOptions)}
+            className="w-full h-60 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer relative hover:brightness-95 transition-all flex items-center justify-center"
+          >
+            <img
+              src={formData.gambar || "https://via.placeholder.com/150"}
+              alt={formData.nama}
+              className="w-full h-full object-contain p-2"
+            />
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
+              <Camera className="text-white" size={24} />
+            </div>
+          </div>
 
-        <img
-          src={formData.gambar}
-          alt={formData.nama}
-          className="
-            w-full
-            h-60
-            object-contain
-            bg-gray-100
-            rounded-2xl
-          "
-        />
-
-        {/* EDIT BUTTON */}
-        <label
-          className="
-            inline-block
-            mt-3
-            text-sm
-            font-medium
-            text-[#214E8A]
-            cursor-pointer
-            hover:underline
-          "
-        >
-          Edit Gambar
-
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageChange}
-          />
-        </label>
-
+          {/* Photo Selector Popover Box */}
+          {showPhotoOptions && (
+            <div className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 z-20 w-[300px]">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-[#214E8A] hover:underline cursor-pointer block text-center py-2 bg-blue-50 rounded-lg">
+                  Unggah Gambar Baru
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleImageChange(e);
+                      setShowPhotoOptions(false);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, gambar: "" });
+                    setShowPhotoOptions(false);
+                  }}
+                  className="text-sm font-semibold text-red-500 hover:underline block text-center py-2 border border-red-100 rounded-lg"
+                >
+                  Hapus Gambar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* FORM */}

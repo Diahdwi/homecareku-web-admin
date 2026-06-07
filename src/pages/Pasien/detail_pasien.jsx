@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import { getPatientById, deletePatient } from "../../services/firestoreService";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 
 export default function DetailPasien({ isOpen }) {
   const navigate = useNavigate();
@@ -194,7 +194,11 @@ export default function DetailPasien({ isOpen }) {
               disabled={deleting}
               className="w-full bg-[#D83F11] text-white font-medium py-3 rounded-full hover:bg-[#b8350e] transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
             >
-              {deleting && <Loader2 className="animate-spin" size={20} />}
+              {deleting ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <Trash2 size={18} />
+              )}
               Hapus Akun Pasien
             </button>
           </div>
@@ -213,8 +217,9 @@ export default function DetailPasien({ isOpen }) {
             <div className="flex flex-col gap-3">
               <button 
                 onClick={handleDelete}
-                className="w-full bg-[#D83F11] text-white font-medium py-2.5 rounded-full hover:bg-[#b8350e] transition-colors"
+                className="w-full bg-[#D83F11] text-white font-medium py-2.5 rounded-full hover:bg-[#b8350e] transition-colors flex justify-center items-center gap-2"
               >
+                <Trash2 size={18} />
                 Ya, Hapus Akun
               </button>
               <button 

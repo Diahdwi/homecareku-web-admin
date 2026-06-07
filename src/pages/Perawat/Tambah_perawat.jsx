@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import { addNurse, avatars, defaultAvatarPlaceholder } from "../../services/firestoreService";
-import { Loader2, Camera, Edit2 } from "lucide-react";
+import { Loader2, Camera, Edit2, Save } from "lucide-react";
 
 export default function TambahPerawat({ isOpen }) {
   const navigate = useNavigate();
@@ -401,7 +401,11 @@ export default function TambahPerawat({ isOpen }) {
             disabled={saving}
             className="w-full bg-[#214E8A] text-white font-medium py-3 rounded-full hover:bg-[#1a3e6e] transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
           >
-            {saving && <Loader2 className="animate-spin" size={20} />}
+            {saving ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Save size={18} />
+            )}
             {saving ? "Menyimpan..." : "Simpan Perawat"}
           </button>
           <button 
@@ -425,8 +429,9 @@ export default function TambahPerawat({ isOpen }) {
             <div className="flex flex-col gap-3">
               <button 
                 onClick={handleSave}
-                className="w-full bg-[#214E8A] text-white font-medium py-2.5 rounded-full hover:bg-[#1a3e6e] transition-colors"
+                className="w-full bg-[#214E8A] text-white font-medium py-2.5 rounded-full hover:bg-[#1a3e6e] transition-colors flex justify-center items-center gap-2"
               >
+                <Save size={18} />
                 Ya, Simpan
               </button>
               <button 

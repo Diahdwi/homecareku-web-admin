@@ -7,7 +7,7 @@ import { Loader2, Camera, Edit2 } from "lucide-react";
 export default function DetailPerawat({ isOpen }) {
   const navigate = useNavigate();
   const { id } = useParams();
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -227,9 +227,8 @@ export default function DetailPerawat({ isOpen }) {
 
   return (
     <div
-      className={`bg-[#ECECEC] min-h-screen p-5 transition-all duration-300 ${
-        isOpen ? "ml-[280px]" : "ml-[90px]"
-      } relative`}
+      className={`bg-[#ECECEC] min-h-screen p-5 transition-all duration-300 ${isOpen ? "ml-[280px]" : "ml-[90px]"
+        } relative`}
     >
       <Header />
 
@@ -251,11 +250,11 @@ export default function DetailPerawat({ isOpen }) {
         </div>
       ) : (
         <div className="bg-white rounded-3xl p-8 shadow-sm max-w-6xl mb-10">
-          
+
           {/* Top Section with Profile Photo beside Name & Quick Edit Option */}
           <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8 relative">
             <div className="relative group shrink-0">
-              <div 
+              <div
                 onClick={() => setShowPhotoOptions(!showPhotoOptions)}
                 className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0 cursor-pointer relative hover:brightness-95 transition-all flex items-center justify-center"
               >
@@ -264,7 +263,7 @@ export default function DetailPerawat({ isOpen }) {
                   <Camera className="text-white" size={20} />
                 </div>
               </div>
-              
+
               {/* Photo Selector Popover Box */}
               {showPhotoOptions && (
                 <div className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 z-20 w-[300px]">
@@ -275,22 +274,21 @@ export default function DetailPerawat({ isOpen }) {
                         key={idx}
                         type="button"
                         onClick={() => handleAvatarSelect(idx)}
-                        className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${
-                          formData.avatarIndex === idx && !formData.photoBase64 ? "border-[#214E8A]" : "border-transparent"
-                        }`}
+                        className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${formData.avatarIndex === idx && !formData.photoBase64 ? "border-[#214E8A]" : "border-transparent"
+                          }`}
                       >
                         <img src={url} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
-                  
+
                   <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
                     <label className="text-xs font-semibold text-[#214E8A] hover:underline cursor-pointer block text-center py-1 bg-blue-50 rounded-lg">
                       Unggah Foto Baru
                       <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                     </label>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={handleRemovePhoto}
                       className="text-xs font-semibold text-red-500 hover:underline block text-center py-1"
                     >
@@ -321,7 +319,7 @@ export default function DetailPerawat({ isOpen }) {
             <button className="font-bold text-black pb-2 border-b-2 border-black">
               Data Diri
             </button>
-            <button 
+            <button
               onClick={() => navigate(`/capaian_perawat/${id}`)}
               className="font-bold text-gray-500 pb-2 hover:text-black transition-colors"
             >
@@ -472,14 +470,14 @@ export default function DetailPerawat({ isOpen }) {
 
           {/* Buttons (Changed button text to Hapus Akun Perawat) */}
           <div className="flex flex-col gap-4">
-            <button 
+            <button
               onClick={validateAndSubmit}
               disabled={saving}
               className="w-full bg-[#214E8A] text-white font-medium py-3 rounded-full hover:bg-[#1a3e6e] transition-colors disabled:opacity-50"
             >
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
-            <button 
+            <button
               onClick={() => setShowPopup(true)}
               disabled={saving}
               className="w-full bg-[#D83F11] text-white font-medium py-3 rounded-full hover:bg-[#b8350e] transition-colors disabled:opacity-50"
@@ -499,13 +497,13 @@ export default function DetailPerawat({ isOpen }) {
               Apakah Anda yakin ingin menyimpan perubahan data perawat ini?
             </p>
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={handleSave}
                 className="w-full bg-[#214E8A] text-white font-medium py-2.5 rounded-full hover:bg-[#1a3e6e] transition-colors"
               >
                 Ya, Simpan
               </button>
-              <button 
+              <button
                 onClick={() => setShowSaveConfirm(false)}
                 className="w-full bg-gray-200 text-gray-800 font-medium py-2.5 rounded-full hover:bg-gray-300 transition-colors"
               >
@@ -525,13 +523,13 @@ export default function DetailPerawat({ isOpen }) {
               Apakah Anda yakin ingin menghapus akun perawat <strong>{formData.name}</strong>?
             </p>
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={handleDeactivate}
                 className="w-full bg-[#D83F11] text-white font-medium py-2.5 rounded-full hover:bg-[#b8350e] transition-colors"
               >
                 Ya, Hapus Akun
               </button>
-              <button 
+              <button
                 onClick={() => setShowPopup(false)}
                 className="w-full bg-gray-200 text-gray-800 font-medium py-2.5 rounded-full hover:bg-gray-300 transition-colors"
               >

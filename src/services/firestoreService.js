@@ -1,0 +1,317 @@
+import { db } from "../config/firebase";
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  where, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  Timestamp,
+  onSnapshot
+} from "firebase/firestore";
+import { initializeApp, getApps, deleteApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+
+// Firebase config for secondary auth instance (so we don't sign out the admin)
+const firebaseConfig = {
+  apiKey: "AIzaSyCCeN_izbTvxor336zrhynDbr9SCYGeyf0",
+  authDomain: "homecareku-94c61.firebaseapp.com",
+  databaseURL: "https://homecareku-94c61-default-rtdb.firebaseio.com",
+  projectId: "homecareku-94c61",
+  storageBucket: "homecareku-94c61.appspot.com",
+  messagingSenderId: "617644220368",
+  appId: "1:617644220368:web:5aeecdbae8e298eeda3d5"
+};
+
+// Avatars mapping
+export const avatars = [
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Bintang&backgroundColor=b6e3f4", // 0
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Megawanti&backgroundColor=ffdfbf", // 1
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Abyan&backgroundColor=c0aede", // 2
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Nala&backgroundColor=d1f4ff", // 3
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Jovan&backgroundColor=ffd5dc", // 4
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Zahra&backgroundColor=e8ffdb"  // 5
+];
+
+// Helper silhouette placeholder
+export const defaultAvatarPlaceholder = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a0aec0'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+
+// Helper to convert Firestore status to UI status
+const mapStatusToUI = (dbStatus) => {
+  return dbStatus === "on_shift" ? "Sedang Bertugas" : "Tidak Bertugas";
+};
+
+// Helper to convert UI status to DB status
+const mapStatusToDB = (uiStatus) => {
+  return uiStatus === "Sedang Bertugas" ? "on_shift" : "tidak_bertugas";
+};
+
+// Helper to convert DB lokasi to UI lokasi
+const mapLokasiToUI = (dbLokasi) => {
+  return dbLokasi === true ? "Rumah Pasien" : "Klinik";
+};
+
+// Helper to convert UI lokasi to DB lokasi
+const mapLokasiToDB = (uiLokasi) => {
+  return uiLokasi === "Rumah Pasien";
+};
+
+// Get all nurses
+export async function getNurses() {
+  try {
+    const q = query(
+      collection(db, "users"), 
+      where("id_role", "==", "/roles/2")
+    );
+    const querySnapshot = await getDocs(q);
+    const nursesList = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const statusUI = mapStatusToUI(data.status);
+      const lokasiUI = mapLokasiToUI(data.lokasi);
+      const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
+      
+      nursesList.push({
+        id: doc.id,
+        name: data.nama || "",
+        email: data.email || "",
+        phone: data.no_hp || "",
+        alamat: data.alamat || "",
+        noSertifikat: data.no_sertifikat || "-",
+        status: statusUI,
+        lokasi: lokasiUI,
+        jenisKelamin: data.jenis_kelamin || "",
+        tanggalLahir: data.tanggal_lahir instanceof Timestamp 
+          ? data.tanggal_lahir.toDate().toISOString().split('T')[0] 
+          : data.tanggal_lahir || "",
+        isOnline: data.status === "on_shift",
+        avatarIndex: avatarIdx,
+        photoBase64: data.photoBase64 || null,
+        img: data.photoBase64 
+          ? `data:image/jpeg;base64,${data.photoBase64}` 
+          : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder),
+        isActive: data.is_active !== false
+      });
+    });
+    return nursesList.filter(n => n.isActive);
+  } catch (error) {
+    console.error("Error in getNurses:", error);
+    throw error;
+  }
+}
+
+// Subscribe to real-time updates for all active nurses
+export function subscribeNurses(onUpdate, onError) {
+  const q = query(
+    collection(db, "users"), 
+    where("id_role", "==", "/roles/2")
+  );
+  return onSnapshot(q, (querySnapshot) => {
+    const nursesList = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const statusUI = mapStatusToUI(data.status);
+      const lokasiUI = mapLokasiToUI(data.lokasi);
+      const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
+
+      nursesList.push({
+        id: doc.id,
+        name: data.nama || "",
+        email: data.email || "",
+        phone: data.no_hp || "",
+        alamat: data.alamat || "",
+        noSertifikat: data.no_sertifikat || "-",
+        status: statusUI,
+        lokasi: lokasiUI,
+        jenisKelamin: data.jenis_kelamin || "",
+        tanggalLahir: data.tanggal_lahir instanceof Timestamp 
+          ? data.tanggal_lahir.toDate().toISOString().split('T')[0] 
+          : data.tanggal_lahir || "",
+        isOnline: data.status === "on_shift",
+        avatarIndex: avatarIdx,
+        photoBase64: data.photoBase64 || null,
+        img: data.photoBase64 
+          ? `data:image/jpeg;base64,${data.photoBase64}` 
+          : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder),
+        isActive: data.is_active !== false
+      });
+    });
+    onUpdate(nursesList.filter(n => n.isActive));
+  }, (error) => {
+    console.error("Error subscribing to nurses:", error);
+    if (onError) onError(error);
+  });
+}
+
+// Get nurse by ID
+export async function getNurseById(id) {
+  try {
+    const docRef = doc(db, "users", id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      throw new Error("Nurse not found");
+    }
+    const data = docSnap.data();
+    const statusUI = mapStatusToUI(data.status);
+    const lokasiUI = mapLokasiToUI(data.lokasi);
+    const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
+
+    return {
+      id: docSnap.id,
+      name: data.nama || "",
+      email: data.email || "",
+      phone: data.no_hp || "",
+      alamat: data.alamat || "",
+      noSertifikat: data.no_sertifikat || "",
+      status: statusUI,
+      lokasi: lokasiUI,
+      jenisKelamin: data.jenis_kelamin || "",
+      tanggalLahir: data.tanggal_lahir instanceof Timestamp 
+        ? data.tanggal_lahir.toDate().toISOString().split('T')[0] 
+        : data.tanggal_lahir || "",
+      isOnline: data.status === "on_shift",
+      password: data.password || "",
+      avatarIndex: avatarIdx,
+      photoBase64: data.photoBase64 || null,
+      img: data.photoBase64 
+        ? `data:image/jpeg;base64,${data.photoBase64}` 
+        : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder),
+      isActive: data.is_active !== false
+    };
+  } catch (error) {
+    console.error("Error in getNurseById:", error);
+    throw error;
+  }
+}
+
+// Create new nurse
+export async function addNurse(nurseData) {
+  try {
+    // 1. Create account in Firebase Auth using a separate Firebase App instance
+    // to prevent logging out the current admin user session
+    const secondaryAppName = `TempApp_${Date.now()}`;
+    const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+    const secondaryAuth = getAuth(secondaryApp);
+    
+    const userCredential = await createUserWithEmailAndPassword(
+      secondaryAuth, 
+      nurseData.email, 
+      nurseData.password
+    );
+    const uid = userCredential.user.uid;
+    
+    // Clean up temporary app instance
+    await deleteApp(secondaryApp);
+
+    // 2. Save document to Firestore
+    const nurseDocRef = doc(db, "users", uid);
+    const docPayload = {
+      nama: nurseData.name,
+      email: nurseData.email,
+      password: nurseData.password,
+      no_hp: nurseData.phone,
+      alamat: nurseData.alamat,
+      no_sertifikat: nurseData.noSertifikat || "",
+      jenis_kelamin: nurseData.jenisKelamin,
+      id_role: "/roles/2",
+      status: mapStatusToDB(nurseData.status || "Tidak Bertugas"),
+      lokasi: mapLokasiToDB(nurseData.lokasi),
+      is_active: true,
+      avatar_index: nurseData.avatarIndex !== undefined ? parseInt(nurseData.avatarIndex) : -1,
+      tanggal_lahir: nurseData.tanggalLahir 
+        ? Timestamp.fromDate(new Date(nurseData.tanggalLahir)) 
+        : Timestamp.fromDate(new Date()),
+      created_at: Timestamp.fromDate(new Date())
+    };
+
+    if (nurseData.photoBase64) {
+      docPayload.photoBase64 = nurseData.photoBase64;
+    }
+
+    await setDoc(nurseDocRef, docPayload);
+    return uid;
+  } catch (error) {
+    console.error("Error in addNurse:", error);
+    throw error;
+  }
+}
+
+// Update nurse
+export async function updateNurse(id, nurseData) {
+  try {
+    const docRef = doc(db, "users", id);
+    const docPayload = {
+      nama: nurseData.name,
+      email: nurseData.email,
+      no_hp: nurseData.phone,
+      alamat: nurseData.alamat,
+      no_sertifikat: nurseData.noSertifikat || "",
+      jenis_kelamin: nurseData.jenisKelamin,
+      status: mapStatusToDB(nurseData.status || "Tidak Bertugas"),
+      lokasi: mapLokasiToDB(nurseData.lokasi),
+      avatar_index: nurseData.avatarIndex !== undefined ? parseInt(nurseData.avatarIndex) : -1
+    };
+    
+    if (nurseData.tanggalLahir) {
+      docPayload.tanggal_lahir = Timestamp.fromDate(new Date(nurseData.tanggalLahir));
+    }
+    
+    if (nurseData.password) {
+      docPayload.password = nurseData.password;
+    }
+
+    if (nurseData.photoBase64 !== undefined) {
+      docPayload.photoBase64 = nurseData.photoBase64;
+    }
+
+    await updateDoc(docRef, docPayload);
+  } catch (error) {
+    console.error("Error in updateNurse:", error);
+    throw error;
+  }
+}
+
+// Deactivate/delete nurse
+export async function deactivateNurse(id) {
+  try {
+    const docRef = doc(db, "users", id);
+    await updateDoc(docRef, { is_active: false });
+  } catch (error) {
+    console.error("Error in deactivateNurse:", error);
+    throw error;
+  }
+}
+
+// Get nurse achievements/orders
+export async function getNurseCapaian(nurseId) {
+  try {
+    const q = query(
+      collection(db, "pesanan"),
+      where("id_perawat", "==", nurseId)
+    );
+    const querySnapshot = await getDocs(q);
+    const achievements = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      achievements.push({
+        id: doc.id,
+        layanan: data.nama_layanan || data.layanan || "Layanan",
+        layananImg: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.nama_layanan || "layanan"}&backgroundColor=b6e3f4`,
+        tipe: data.tipe_layanan || "Rumah",
+        pasien: data.nama_pasien || "Pasien",
+        waktu: data.waktu || "10.00 - 12.00",
+        tanggal: data.tanggal_booking instanceof Timestamp 
+          ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+          : data.tanggal_booking || "12 Mei 2026",
+        rekamMedis: data.rekam_medis || data.catatan || "-"
+      });
+    });
+    return achievements;
+  } catch (error) {
+    console.error("Error in getNurseCapaian:", error);
+    return [];
+  }
+}

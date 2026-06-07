@@ -88,12 +88,12 @@ function AdminLayout() {
           />
 
           <Route
-            path="/detail_perawat"
+            path="/detail_perawat/:id"
             element={<DetailPerawat isOpen={isOpen} />}
           />
 
           <Route
-            path="/capaian_perawat"
+            path="/capaian_perawat/:id"
             element={<CapaianPerawat isOpen={isOpen} />}
           />
 

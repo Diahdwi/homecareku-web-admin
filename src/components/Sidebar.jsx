@@ -164,7 +164,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           <nav className="space-y-2">
             {menuItems.map((item) => {
               const active =
-                location.pathname === item.path;
+                location.pathname === item.path ||
+                (item.path === "/perawat" && (
+                  location.pathname.startsWith("/perawat") ||
+                  location.pathname.startsWith("/detail_perawat") ||
+                  location.pathname.startsWith("/capaian_perawat") ||
+                  location.pathname.startsWith("/tambah_perawat")
+                ));
 
               return (
                 <Link

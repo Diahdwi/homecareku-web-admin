@@ -135,9 +135,10 @@ export default function Layanan({ isOpen }) {
             bg-[#214E8A]
             text-white
             px-5
-            py-3
-            rounded-2xl
+            py-2.5
+            rounded-full
             hover:bg-[#193d6d]
+            font-semibold
           "
         >
           <Plus size={20} />

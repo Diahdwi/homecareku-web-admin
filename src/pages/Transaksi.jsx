@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Header from "../components/Header";
-import { SlidersHorizontal, ChevronDown, Banknote, Landmark, X } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight, Banknote, Landmark, X } from "lucide-react";
 
 export default function Transaksi({ isOpen }) {
   // State for filter dropdown popover
@@ -13,6 +13,10 @@ export default function Transaksi({ isOpen }) {
   const [filterMethod, setFilterMethod] = useState("Semua");
   const [filterService, setFilterService] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -174,6 +178,16 @@ export default function Transaksi({ isOpen }) {
       return true;
     });
   }, [dummyTransactions, filterName, filterDate, filterMethod, filterService, filterStatus]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterName, filterDate, filterMethod, filterService, filterStatus]);
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
 
   // Compute stats based on current filters
   const totalTransactions = filteredTransactions.length;
@@ -408,8 +422,8 @@ export default function Transaksi({ isOpen }) {
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((tx, index) => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
                     {/* Nama (with Avatar) */}
                     <td className="py-4 flex items-center gap-3">
@@ -474,6 +488,29 @@ export default function Transaksi({ isOpen }) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-8">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2.5 rounded-full bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-sm font-semibold text-gray-700">
+              Halaman {currentPage} dari {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2.5 rounded-full bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

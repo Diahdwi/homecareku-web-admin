@@ -93,7 +93,7 @@ export default function Login() {
             </label>
             <input
               type="email"
-              placeholder="admin@homecareku.com"
+              placeholder="Email Address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-5 py-4 text-sm bg-[#F4F7FE] rounded-xl outline-none border-none focus:ring-2 focus:ring-[#214E8A]/20"
@@ -110,7 +110,7 @@ export default function Login() {
             <div className="relative">
               <input
                 type={isPasswordVisible ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="Enter Your Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-5 py-4 text-sm bg-[#F4F7FE] rounded-xl outline-none border-none focus:ring-2 focus:ring-[#214E8A]/20"

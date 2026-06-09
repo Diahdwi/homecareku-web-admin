@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Header from "../components/Header";
 import { SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight, Banknote, Landmark, X } from "lucide-react";
+import { subscribeTransactions, subscribeLayanan } from "../services/firestoreService";
 
 export default function Transaksi({ isOpen }) {
   // State for filter dropdown popover
@@ -31,130 +32,79 @@ export default function Transaksi({ isOpen }) {
     };
   }, []);
 
-  // Generate 110 dummy transactions
-  const dummyTransactions = useMemo(() => {
-    // The first 6 items exactly matching the mockup image
-    const initialItems = [
-      {
-        id: 1,
-        name: "Golang",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "10:20",
-        method: "Qris",
-        status: "Lunas",
-        price: 100000,
-        service: "Perawatan Luka",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Golang&backgroundColor=ffdfbf"
-      },
-      {
-        id: 2,
-        name: "Abyan Faza",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "11:20",
-        method: "Tunai",
-        status: "Lunas",
-        price: 100000,
-        service: "Pasang Kateter",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Abyan&backgroundColor=b6e3f4"
-      },
-      {
-        id: 3,
-        name: "Siti Kusmini",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "12:10",
-        method: "Tunai",
-        status: "Lunas",
-        price: 100000,
-        service: "Khitan Modern",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Siti&backgroundColor=ffdfbf"
-      },
-      {
-        id: 4,
-        name: "Dedi Kokbuzer",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "13:12",
-        method: "Tunai",
-        status: "Lunas",
-        price: 100000,
-        service: "Perawatan Luka",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dedi&backgroundColor=b6e3f4"
-      },
-      {
-        id: 5,
-        name: "Cece Majalengka",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "10:20",
-        method: "Qris",
-        status: "Batal",
-        price: 100000,
-        service: "Perawatan Luka",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Cece&backgroundColor=ffdfbf"
-      },
-      {
-        id: 6,
-        name: "Fajar Sadboy",
-        date: "2026-04-22",
-        dateFormatted: "22 April 2026",
-        time: "10:20",
-        method: "Qris",
-        status: "Lunas",
-        price: 100000,
-        service: "Pasang Kateter",
-        img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Fajar&backgroundColor=b6e3f4"
-      }
-    ];
+  const [transactions, setTransactions] = useState([]);
+  const [layananList, setLayananList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    const names = ["Ahmad", "Budi", "Chandra", "Dewi", "Eko", "Farida", "Giri", "Hana", "Indra", "Joko"];
-    const services = ["Perawatan Luka", "Pasang Kateter", "Khitan Modern", "Fisioterapi", "Infus Rumah"];
-    const methods = ["Qris", "Tunai"];
-    const statuses = ["Lunas", "Batal"];
-    const prices = [100000, 150000, 200000, 250000];
-
-    // Generate the remaining 104 items to reach 110 items total
-    const generatedItems = Array.from({ length: 104 }, (_, index) => {
-      const id = index + 7;
-      const name = names[id % names.length] + " " + (id % 3 === 0 ? "Pratama" : "Sari");
-      const service = services[id % services.length];
-      const method = methods[id % methods.length];
-      const status = id % 7 === 0 ? "Batal" : "Lunas"; // 1 in 7 cancelled
-      const price = prices[id % prices.length];
-      const day = (id % 28) + 1;
-      const dateStr = `2026-04-${day.toString().padStart(2, "0")}`;
-      
-      const monthNames = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-      ];
-      const dateFormatted = `${day} April 2026`;
-      const hour = (8 + (id % 10)).toString().padStart(2, "0");
-      const minute = ((id * 5) % 60).toString().padStart(2, "0");
-      const time = `${hour}:${minute}`;
-
-      return {
-        id,
-        name,
-        date: dateStr,
-        dateFormatted,
-        time,
-        method,
-        status,
-        price,
-        service,
-        img: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}&backgroundColor=${id % 2 === 0 ? "b6e3f4" : "ffdfbf"}`
-      };
+  // Fetch transactions and services from Firestore
+  useEffect(() => {
+    const unsubscribeLayanan = subscribeLayanan((layanans) => {
+      setLayananList(layanans);
     });
 
-    return [...initialItems, ...generatedItems];
+    const unsubscribeTransactions = subscribeTransactions((txs) => {
+      setTransactions(txs);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribeLayanan();
+      unsubscribeTransactions();
+    };
   }, []);
+
+  // Map database transactions to UI format
+  const mappedTransactions = useMemo(() => {
+    return transactions.map((t) => {
+      let tgl = new Date();
+      if (t.tanggal_booking) {
+        tgl = t.tanggal_booking.toDate ? t.tanggal_booking.toDate() : new Date(t.tanggal_booking);
+      }
+      const dateStr = tgl.toISOString().split('T')[0];
+      const dateFormatted = tgl.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      // Use transaction price if available, otherwise match service price
+      let price = t.harga || 0;
+      if (!price) {
+        const matchingLayanan = layananList.find(
+          (l) => l.nama.toLowerCase() === t.layanan.toLowerCase()
+        );
+        if (matchingLayanan && matchingLayanan.harga) {
+          const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
+          if (!isNaN(parsed)) {
+            price = parsed;
+          }
+        }
+      }
+      if (!price) {
+        price = 100000; // Fallback default
+      }
+
+      // Map status
+      let uiStatus = "Lunas";
+      if (t.status_detail === "Batal" || t.status === "Batal" || t.status === "Tidak Selesai") {
+        uiStatus = "Batal";
+      }
+
+      return {
+        id: t.id,
+        id_pesanan: t.id_pesanan,
+        name: t.nama_pasien || "Pasien",
+        date: dateStr,
+        dateFormatted,
+        time: t.jam_booking || "08:00",
+        method: t.metode_pembayaran || "Tunai",
+        status: uiStatus,
+        price: price,
+        service: t.layanan || "Layanan",
+        img: `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.nama_pasien || "Pasien"}&backgroundColor=b6e3f4`
+      };
+    });
+  }, [transactions, layananList]);
 
   // Filter logic
   const filteredTransactions = useMemo(() => {
-    return dummyTransactions.filter((t) => {
+    return mappedTransactions.filter((t) => {
       // 1. Filter by Name
       if (filterName && !t.name.toLowerCase().includes(filterName.toLowerCase())) {
         return false;
@@ -177,7 +127,7 @@ export default function Transaksi({ isOpen }) {
       }
       return true;
     });
-  }, [dummyTransactions, filterName, filterDate, filterMethod, filterService, filterStatus]);
+  }, [mappedTransactions, filterName, filterDate, filterMethod, filterService, filterStatus]);
 
   // Reset page when filter changes
   useEffect(() => {

@@ -11,7 +11,8 @@ import {
   deleteDoc,
   addDoc,
   Timestamp,
-  onSnapshot
+  onSnapshot,
+  collectionGroup
 } from "firebase/firestore";
 import { initializeApp, getApps, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
@@ -545,4 +546,133 @@ export async function deleteLayanan(id) {
     throw error;
   }
 }
+
+// Subscribe to real-time updates for all transactions (bookings & pembayaran subcollections)
+export function subscribeTransactions(onUpdate, onError) {
+  let latestBookings = [];
+  let latestPayments = [];
+  let userCache = {};
+
+  const emitUpdates = () => {
+    const list = [];
+    latestBookings.forEach((bDoc) => {
+      const bData = bDoc.data;
+      const bId = bDoc.id;
+
+      // Find pembayaran matching this booking ID
+      const payment = latestPayments.find((p) => p.bookingId === bId);
+      
+      // Get patient name
+      const patientId = bData.pasien?.id_pasien || "";
+      const patientName = userCache[patientId] || "Pasien";
+
+      // Map status
+      const paymentStatus = payment?.status || "pending";
+      let uiStatus = "Lunas";
+      if (paymentStatus.toLowerCase() === "batal" || paymentStatus.toLowerCase() === "tidak selesai") {
+        uiStatus = "Batal";
+      }
+
+      // Map method
+      const rawMethod = payment?.metode_pembayaran || "cash";
+      let uiMethod = "Tunai";
+      if (rawMethod.toLowerCase() === "qris") {
+        uiMethod = "Qris";
+      }
+
+      // Timestamp
+      const bookingTime = bData.alamat?.created_at || payment?.tanggal_bayar;
+
+      list.push({
+        id: bId,
+        id_pesanan: `#${bId.substring(0, 6).toUpperCase()}`,
+        id_pasien: patientId,
+        nama_pasien: patientName,
+        layanan: bData.layanan?.nama_layanan || "Layanan",
+        jam_booking: bookingTime instanceof Timestamp
+          ? bookingTime.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })
+          : "08:00",
+        tanggal_booking: bookingTime,
+        tempat_layanan: "Rumah",
+        alamat_detail: bData.alamat?.nama_jalan || "",
+        catatan: bData.alamat?.catatan || "",
+        status: uiStatus,
+        status_detail: paymentStatus === "selesai" ? "Selesai" : paymentStatus === "menunggu validasi" || paymentStatus === "Selesai & Menunggu Validasi" ? "Selesai & Menunggu Validasi" : "Menunggu Validasi",
+        metode_pembayaran: uiMethod,
+        harga: payment?.total_bayar || 0,
+        created_at: bookingTime
+      });
+    });
+
+    onUpdate(list);
+  };
+
+  // 1. Listen to users
+  const qUsers = query(collection(db, "users"), where("id_role", "==", "/roles/3"));
+  const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+    snapshot.forEach((uDoc) => {
+      userCache[uDoc.id] = uDoc.data().nama || "";
+    });
+    emitUpdates();
+  }, onError);
+
+  // 2. Listen to bookings
+  const qBookings = collection(db, "bookings");
+  const unsubBookings = onSnapshot(qBookings, (snapshot) => {
+    const bookingsList = [];
+    snapshot.forEach((docSnap) => {
+      bookingsList.push({
+        id: docSnap.id,
+        data: docSnap.data()
+      });
+    });
+    latestBookings = bookingsList;
+    emitUpdates();
+  }, onError);
+
+  // 3. Listen to pembayaran collection group
+  const qPayments = collectionGroup(db, "pembayaran");
+  const unsubPayments = onSnapshot(qPayments, (snapshot) => {
+    const paymentsList = [];
+    snapshot.forEach((docSnap) => {
+      const bookingId = docSnap.ref.parent.parent?.id;
+      if (bookingId) {
+        paymentsList.push({
+          id: docSnap.id,
+          bookingId,
+          ...docSnap.data()
+        });
+      }
+    });
+    latestPayments = paymentsList;
+    emitUpdates();
+  }, onError);
+
+  return () => {
+    unsubUsers();
+    unsubBookings();
+    unsubPayments();
+  };
+}
+
+// Verify a payment / update status of an order
+export async function verifyPayment(bookingId, statusDetail, status) {
+  try {
+    const pembayaranRef = collection(db, "bookings", bookingId, "pembayaran");
+    const snapshot = await getDocs(pembayaranRef);
+    if (!snapshot.empty) {
+      // Update each document in the pembayaran subcollection
+      const promises = snapshot.docs.map((paymentDoc) => {
+        return updateDoc(doc(db, "bookings", bookingId, "pembayaran", paymentDoc.id), {
+          status: statusDetail === "Selesai" ? "selesai" : statusDetail.toLowerCase()
+        });
+      });
+      await Promise.all(promises);
+    }
+  } catch (error) {
+    console.error("Error in verifyPayment:", error);
+    throw error;
+  }
+}
+
 

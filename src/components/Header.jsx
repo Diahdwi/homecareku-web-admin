@@ -2,36 +2,53 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, MessageSquare, Search } from "lucide-react";
 import ChatPopup from "./ChatPopup";
+import NotifPopup from "./NotifPopup";
 
 export default function Header() {
   const navigate = useNavigate();
+
+  // Chat popup state
   const [showChatPopup, setShowChatPopup] = useState(false);
   const chatRef = useRef(null);
-  const hoverTimeoutRef = useRef(null);
+  const chatHoverTimeout = useRef(null);
 
-  // Close popup when clicking outside
+  // Notif popup state
+  const [showNotifPopup, setShowNotifPopup] = useState(false);
+  const notifRef = useRef(null);
+  const notifHoverTimeout = useRef(null);
+
+  // Close popups on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (chatRef.current && !chatRef.current.contains(e.target)) {
         setShowChatPopup(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifPopup(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleMouseEnter = () => {
-    clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => {
-      setShowChatPopup(true);
-    }, 200);
+  // Chat hover handlers
+  const handleChatMouseEnter = () => {
+    clearTimeout(chatHoverTimeout.current);
+    chatHoverTimeout.current = setTimeout(() => setShowChatPopup(true), 200);
+  };
+  const handleChatMouseLeave = () => {
+    clearTimeout(chatHoverTimeout.current);
+    chatHoverTimeout.current = setTimeout(() => setShowChatPopup(false), 300);
   };
 
-  const handleMouseLeave = () => {
-    clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => {
-      setShowChatPopup(false);
-    }, 300);
+  // Notif hover handlers
+  const handleNotifMouseEnter = () => {
+    clearTimeout(notifHoverTimeout.current);
+    notifHoverTimeout.current = setTimeout(() => setShowNotifPopup(true), 200);
+  };
+  const handleNotifMouseLeave = () => {
+    clearTimeout(notifHoverTimeout.current);
+    notifHoverTimeout.current = setTimeout(() => setShowNotifPopup(false), 300);
   };
 
   return (
@@ -62,16 +79,37 @@ export default function Header() {
         </div>
 
         {/* NOTIF */}
-        <button className="w-12 h-12 rounded-full bg-white shadow flex items-center justify-center">
-          <Bell size={20} className="text-[#214E8A]" />
-        </button>
+        <div
+          ref={notifRef}
+          className="relative"
+          onMouseEnter={handleNotifMouseEnter}
+          onMouseLeave={handleNotifMouseLeave}
+        >
+          <button
+            onClick={() => {
+              setShowNotifPopup(false);
+              navigate("/notifikasi");
+            }}
+            className="w-12 h-12 rounded-full bg-white shadow flex items-center justify-center relative"
+          >
+            <Bell size={20} className="text-[#214E8A]" />
+
+            {/* Unread Badge */}
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              3
+            </span>
+          </button>
+
+          {/* Hover Popup */}
+          {showNotifPopup && <NotifPopup />}
+        </div>
 
         {/* CHAT */}
         <div
           ref={chatRef}
           className="relative"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={handleChatMouseEnter}
+          onMouseLeave={handleChatMouseLeave}
         >
           <button
             onClick={() => {

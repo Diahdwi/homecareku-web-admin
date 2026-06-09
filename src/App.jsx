@@ -16,6 +16,8 @@ import Pasien2 from "./pages/Pasien/Pasien2";
 import DetailPasien from "./pages/Pasien/detail_pasien";
 import RekamMedisPasien from "./pages/Pasien/rekam_medis_pasien";
 import Transaksi from "./pages/Transaksi";
+import Chat from "./pages/Chat";
+import Notifikasi from "./pages/Notifikasi";
 
 function AdminLayout() {
   const location = useLocation();
@@ -125,6 +127,16 @@ function AdminLayout() {
           <Route
             path="/transaksi"
             element={<Transaksi isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/chat"
+            element={<Chat isOpen={isOpen} />}
+          />
+
+          <Route
+            path="/notifikasi"
+            element={<Notifikasi isOpen={isOpen} />}
           />
         </Routes>
       </main>

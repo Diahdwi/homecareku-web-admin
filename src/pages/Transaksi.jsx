@@ -348,6 +348,9 @@ export default function Transaksi({ isOpen }) {
           <table className="w-full min-w-[700px] border-collapse">
             <thead>
               <tr className="border-b border-gray-100">
+                <th className="text-left pb-4 pr-4 text-xs font-bold text-gray-400 uppercase tracking-wider w-12">
+                  No
+                </th>
                 <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
                   Nama
                 </th>
@@ -375,6 +378,11 @@ export default function Transaksi({ isOpen }) {
               {paginatedTransactions.length > 0 ? (
                 paginatedTransactions.map((tx, index) => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
+                    {/* No */}
+                    <td className="py-4 pr-4 text-sm font-semibold text-[#1B2559]">
+                      {startIndex + index + 1}
+                    </td>
+
                     {/* Nama (with Avatar) */}
                     <td className="py-4 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-blue-50">
@@ -430,7 +438,7 @@ export default function Transaksi({ isOpen }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={8} className="py-8 text-center text-gray-500 text-sm">
                     Tidak ada transaksi yang cocok dengan filter.
                   </td>
                 </tr>

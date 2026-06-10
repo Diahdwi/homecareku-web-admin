@@ -7,6 +7,7 @@ import { auth, db } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { avatars, defaultAvatarPlaceholder } from "../services/firestoreService";
+import { subscribeAdminChatRooms } from "../services/chatService";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -26,6 +27,17 @@ export default function Header() {
   const [adminData, setAdminData] = useState(null);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const profileMenuRef = useRef(null);
+
+  // Real-time unread chat count
+  const [totalUnreadChat, setTotalUnreadChat] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAdminChatRooms((roomList) => {
+      const total = roomList.reduce((sum, r) => sum + (r.unread || 0), 0);
+      setTotalUnreadChat(total);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Close popups on outside click
   useEffect(() => {
@@ -231,10 +243,12 @@ export default function Header() {
           >
             <MessageSquare size={20} className="text-[#214E8A]" />
 
-            {/* Unread Badge */}
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#214E8A] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-              6
-            </span>
+            {/* Unread Badge — synced with Firebase real-time */}
+            {totalUnreadChat > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#214E8A] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {totalUnreadChat > 99 ? "99+" : totalUnreadChat}
+              </span>
+            )}
           </button>
 
           {/* Hover Popup */}

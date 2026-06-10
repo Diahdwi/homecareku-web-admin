@@ -24,6 +24,7 @@ import {
   subscribeNurses,
   subscribeLayanan,
   subscribeTransactions,
+  toTitleCase,
 } from "../services/firestoreService";
 
 // Import Firebase milikmu untuk sinkronisasi Verifikasi
@@ -124,7 +125,7 @@ export default function Dashboard({ isOpen }) {
         return {
           id_doc: docSnapshot.id,
           id_pesanan: data.id_pesanan, 
-          nama: data.pasien?.nama || "Tanpa Nama",
+          nama: toTitleCase(data.pasien?.nama || "Tanpa Nama"),
           ...data,
           tanggal_booking: tglBooking, 
           jam_booking: jamBooking,     
@@ -425,7 +426,7 @@ export default function Dashboard({ isOpen }) {
                   >
                     <div className="flex items-start justify-between">
                       <div className="w-full pr-4">
-                        <p className="font-bold text-gray-800">{order.nama}</p>
+                        <p className="font-bold text-gray-800">{toTitleCase(order.nama)}</p>
                         <p className="text-xs text-gray-500">
                           {order.layanan?.nama_layanan || order.layanan} • {order.tempat_layanan || "Rumah"}
                         </p>
@@ -443,7 +444,7 @@ export default function Dashboard({ isOpen }) {
                             <option value="">-- Pilih Perawat Bertugas --</option>
                             {activeNurses.map((nurse) => (
                               <option key={nurse.id} value={nurse.id}>
-                                {nurse.nama} (On Shift)
+                                {toTitleCase(nurse.nama)} (On Shift)
                               </option>
                             ))}
                           </select>
@@ -516,7 +517,7 @@ export default function Dashboard({ isOpen }) {
                   todaySchedules.map((tx) => (
                     <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="py-3 text-sm font-semibold text-[#1B2559]">
-                        {tx.nama_pasien}
+                        {toTitleCase(tx.nama_pasien)}
                       </td>
                       <td className="py-3 text-sm text-gray-500">
                         {tx.layanan}

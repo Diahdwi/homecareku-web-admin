@@ -41,6 +41,16 @@ export const avatars = [
 // Helper silhouette placeholder
 export const defaultAvatarPlaceholder = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a0aec0'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
+// Helper: convert any string to Title Case
+export function toTitleCase(str) {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 // Helper to convert Firestore status to UI status
 const mapStatusToUI = (dbStatus) => {
   return dbStatus === "on_shift" ? "Sedang Bertugas" : "Tidak Bertugas";
@@ -78,7 +88,7 @@ export async function getNurses() {
       
       nursesList.push({
         id: doc.id,
-        name: data.nama || "",
+        name: toTitleCase(data.nama || ""),
         email: data.email || "",
         phone: data.no_hp || "",
         alamat: data.alamat || "",
@@ -121,7 +131,7 @@ export function subscribeNurses(onUpdate, onError) {
 
       nursesList.push({
         id: doc.id,
-        name: data.nama || "",
+        name: toTitleCase(data.nama || ""),
         email: data.email || "",
         phone: data.no_hp || "",
         alamat: data.alamat || "",
@@ -163,7 +173,7 @@ export async function getNurseById(id) {
 
     return {
       id: docSnap.id,
-      name: data.nama || "",
+      name: toTitleCase(data.nama || ""),
       email: data.email || "",
       phone: data.no_hp || "",
       alamat: data.alamat || "",
@@ -303,7 +313,7 @@ export async function getNurseCapaian(nurseId) {
         layanan: data.nama_layanan || data.layanan || "Layanan",
         layananImg: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.nama_layanan || "layanan"}&backgroundColor=b6e3f4`,
         tipe: data.tipe_layanan || "Rumah",
-        pasien: data.nama_pasien || "Pasien",
+        pasien: toTitleCase(data.nama_pasien || "Pasien"),
         waktu: data.waktu || "10.00 - 12.00",
         tanggal: data.tanggal_booking instanceof Timestamp 
           ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -343,7 +353,7 @@ export function subscribePatients(onUpdate, onError) {
       const avatarIdx = docData.avatar_index !== undefined ? parseInt(docData.avatar_index) : -1;
       return {
         id: docData.id,
-        name: docData.nama || "",
+        name: toTitleCase(docData.nama || ""),
         email: docData.email || "",
         phone: docData.no_hp || "",
         alamat: docData.alamat || "",
@@ -410,7 +420,7 @@ export async function getPatientById(id) {
 
     return {
       id: docSnap.id,
-      name: data.nama || "",
+      name: toTitleCase(data.nama || ""),
       email: data.email || "",
       phone: data.no_hp || "",
       alamat: data.alamat || "",
@@ -459,7 +469,7 @@ export async function getPatientMedicalRecords(patientId) {
           ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
           : data.tanggal_booking || "",
         waktu: data.waktu || "",
-        perawat: data.nama_perawat || data.perawat || "",
+        perawat: toTitleCase(data.nama_perawat || data.perawat || ""),
         catatan: data.rekam_medis || data.catatan || ""
       });
     });
@@ -611,7 +621,7 @@ export function subscribeTransactions(onUpdate, onError) {
   const qUsers = query(collection(db, "users"), where("id_role", "==", "/roles/3"));
   const unsubUsers = onSnapshot(qUsers, (snapshot) => {
     snapshot.forEach((uDoc) => {
-      userCache[uDoc.id] = uDoc.data().nama || "";
+      userCache[uDoc.id] = toTitleCase(uDoc.data().nama || "");
     });
     emitUpdates();
   }, onError);

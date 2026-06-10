@@ -1,7 +1,16 @@
 import { rtdb, db } from "../config/firebase";
-import { ref, onValue, push, set, update, off } from "firebase/database";
+import { ref, onValue, push, set, update, off, serverTimestamp } from "firebase/database";
 import { doc, getDoc } from "firebase/firestore";
 import { avatars, defaultAvatarPlaceholder } from "./firestoreService";
+
+export function toTitleCase(str) {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 /**
  * Subscribe to chat rooms for admin in real-time.
@@ -24,16 +33,42 @@ export function subscribeAdminChatRooms(callback) {
       // Admin only sees chats with patients directed to admin
       if (room.type === "admin") {
         let avatar = defaultAvatarPlaceholder;
-        // Try to map patient avatar
+        
+        // Try to map patient avatar from RTDB room first
         if (room.patient_avatar) {
-          avatar = room.patient_avatar;
+          if (room.patient_avatar.startsWith("data:") || room.patient_avatar.startsWith("http")) {
+            avatar = room.patient_avatar;
+          } else {
+            avatar = `data:image/jpeg;base64,${room.patient_avatar}`;
+          }
         } else if (room.avatarIndex !== undefined && room.avatarIndex >= 0 && avatars[room.avatarIndex]) {
           avatar = avatars[room.avatarIndex];
+        } else if (room.patient_id) {
+          // Fallback: fetch patient profile from Firestore
+          try {
+            const patientDocRef = doc(db, "users", room.patient_id);
+            const patientSnap = await getDoc(patientDocRef);
+            if (patientSnap.exists()) {
+              const pData = patientSnap.data();
+              const pAvatarIdx = pData.avatar_index !== undefined ? parseInt(pData.avatar_index) : -1;
+              if (pData.photoBase64) {
+                avatar = `data:image/jpeg;base64,${pData.photoBase64}`;
+              } else if (pAvatarIdx >= 0 && avatars[pAvatarIdx]) {
+                avatar = avatars[pAvatarIdx];
+              } else {
+                // Use DiceBear as last resort based on patient name
+                const seed = room.patient_name || "Pasien";
+                avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4`;
+              }
+            }
+          } catch (err) {
+            console.warn("Could not fetch patient avatar from Firestore:", err);
+          }
         }
 
         roomsList.push({
           id: key,
-          name: room.patient_name || "Pasien",
+          name: toTitleCase(room.patient_name || "Pasien"),
           avatar: avatar,
           lastMessage: room.last_message || "",
           lastTime: room.last_message_at ? new Date(room.last_message_at) : new Date(room.created_at || Date.now()),
@@ -107,7 +142,6 @@ export async function sendChatMessage(roomId, adminUid, text, type = "text", fil
     const messagesRef = ref(rtdb, `messages/${roomId}`);
     const newMsgRef = push(messagesRef);
     const msgId = newMsgRef.key;
-    const now = Date.now();
     
     const messagePayload = {
       id_chat: msgId,
@@ -115,7 +149,7 @@ export async function sendChatMessage(roomId, adminUid, text, type = "text", fil
       pesan: text,
       sender_id: adminUid,
       sender_role: "admin",
-      waktu: now,
+      waktu: serverTimestamp(),
       is_read: false,
       type: type
     };
@@ -147,7 +181,7 @@ export async function sendChatMessage(roomId, adminUid, text, type = "text", fil
     
     await update(roomRef, {
       last_message: text || (type === "image" ? "📷 Foto" : "📄 Dokumen"),
-      last_message_at: now,
+      last_message_at: serverTimestamp(),
       unread_patient: currentUnreadPatient + 1,
       unread_admin: 0 // Admin is the sender, so admin unread count is reset
     });

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { auth } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { defaultAvatarPlaceholder } from "../services/firestoreService";
 import {
   subscribeAdminChatRooms,
   subscribeMessages,
@@ -275,12 +276,8 @@ export default function Chat({ isOpen }) {
                   key={chat.id}
                   onClick={() => {
                     setActiveChat(chat.id);
-                    // Mark as read
-                    setChats((prev) =>
-                      prev.map((c) =>
-                        c.id === chat.id ? { ...c, unread: 0 } : c
-                      )
-                    );
+                    // DB update happens in useEffect (markChatAsRead)
+                    // Real-time subscription will auto-sync unread count
                   }}
                   className={`
                     flex items-center gap-3
@@ -296,9 +293,10 @@ export default function Chat({ isOpen }) {
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <img
-                      src={chat.avatar}
+                      src={chat.avatar || defaultAvatarPlaceholder}
                       alt={chat.name}
-                      className="w-12 h-12 rounded-full bg-gray-100"
+                      className="w-12 h-12 rounded-full bg-gray-100 object-cover"
+                      onError={(e) => { e.target.src = defaultAvatarPlaceholder; }}
                     />
                   </div>
 
@@ -358,13 +356,13 @@ export default function Chat({ isOpen }) {
                 </button>
 
                 <img
-                  src={activeChatData.avatar}
+                  src={activeChatData.avatar || defaultAvatarPlaceholder}
                   alt={activeChatData.name}
-                  className="w-11 h-11 rounded-full bg-gray-100"
+                  className="w-11 h-11 rounded-full bg-gray-100 object-cover"
+                  onError={(e) => { e.target.src = defaultAvatarPlaceholder; }}
                 />
                 <div>
                   <p className="font-bold text-[#1B2559]">{activeChatData.name}</p>
-                  <p className="text-xs text-green-500 font-medium">Online</p>
                 </div>
               </div>
 

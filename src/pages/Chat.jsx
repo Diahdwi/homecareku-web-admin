@@ -11,140 +11,41 @@ import {
   ArrowLeft,
   Paperclip,
 } from "lucide-react";
+import { auth } from "../config/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  subscribeAdminChatRooms,
+  subscribeMessages,
+  sendChatMessage,
+  markChatAsRead
+} from "../services/chatService";
 
 // ─── TIME FORMATTER ────────────────────────────────
 function formatChatTime(date) {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(date);
   const now = new Date();
-  const diff = now - date;
+  const diff = now - d;
   const oneDay = 24 * 60 * 60 * 1000;
 
-  // Reset hours to compare dates cleanly
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dateStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const daysDiff = Math.floor((todayStart - dateStart) / oneDay);
 
-  // Hari ini → jam
   if (daysDiff === 0) {
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
   }
-
-  // Kemarin
   if (daysDiff === 1) {
     return "Kemarin";
   }
-
-  // 2-7 hari lalu → nama hari
   if (daysDiff >= 2 && daysDiff <= 7) {
-    return date.toLocaleDateString("id-ID", { weekday: "long" });
+    return d.toLocaleDateString("id-ID", { weekday: "long" });
   }
-
-  // Lebih dari 7 hari
-  if (date.getFullYear() !== now.getFullYear()) {
-    // Tahun beda → 7 Mei 2025
-    return date.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  if (d.getFullYear() !== now.getFullYear()) {
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
   }
-
-  // Tahun sama → 7 Mei
-  return date.toLocaleDateString("id-ID", { day: "numeric", month: "long" });
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long" });
 }
-
-// ─── MOCK DATA ─────────────────────────────────────
-const mockChats = [
-  {
-    id: 1,
-    name: "Abyan Faza",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Abyan&backgroundColor=c0aede",
-    lastMessage: "Terima kasih, saya akan coba sarannya",
-    lastTime: new Date(),
-    unread: 3,
-    messages: [
-      { id: 1, text: "Selamat pagi, saya ingin konsultasi", isAdmin: false, time: "07:12", type: "text" },
-      { id: 2, text: "Selamat pagi, silakan ada yang bisa dibantu?", isAdmin: true, time: "07:15", type: "text" },
-      { id: 3, text: "Saya merasa kurang enak badan akhir-akhir ini, sudah 3 hari demam", isAdmin: false, time: "07:18", type: "text" },
-      { id: 4, text: "Baik, apakah ada keluhan lain selain demam? Seperti batuk, pilek, atau nyeri?", isAdmin: true, time: "07:20", type: "text" },
-      { id: 5, text: "", isAdmin: false, time: "07:25", type: "image", imageUrl: "https://images.unsplash.com/photo-1584515933487-779824d29309?w=300&h=200&fit=crop" },
-      { id: 6, text: "Ini foto hasil pemeriksaan saya kemarin", isAdmin: false, time: "07:25", type: "text" },
-      { id: 7, text: "Terima kasih atas fotonya. Saya akan review dan beri saran segera.", isAdmin: true, time: "07:30", type: "text" },
-      { id: 8, text: "Terima kasih, saya akan coba sarannya", isAdmin: false, time: "07:45", type: "text" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Siti Kusmini",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Siti&backgroundColor=ffdfbf",
-    lastMessage: "Rumah saya yang ada atapnya",
-    lastTime: new Date(),
-    unread: 2,
-    messages: [
-      { id: 1, text: "Halo, saya mau tanya alamat kliniknya", isAdmin: false, time: "10:00", type: "text" },
-      { id: 2, text: "Halo Ibu Siti, klinik kami di Jl. Kesehatan No. 15", isAdmin: true, time: "10:05", type: "text" },
-      { id: 3, text: "Rumah saya yang ada atapnya", isAdmin: false, time: "10:10", type: "text" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Dedi Kokbuzer",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dedi&backgroundColor=b6e3f4",
-    lastMessage: "Yang saya rasa selama minum Susu protein...",
-    lastTime: new Date(),
-    unread: 1,
-    messages: [
-      { id: 1, text: "Dok, saya mau tanya tentang suplemen", isAdmin: false, time: "09:30", type: "text" },
-      { id: 2, text: "Yang saya rasa selama minum Susu protein...", isAdmin: false, time: "09:32", type: "text" },
-    ],
-  },
-  {
-    id: 4,
-    name: "Cece Majalengka",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Cece&backgroundColor=ffd5dc",
-    lastMessage: "Oke, mas. Terima kasih.",
-    lastTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // kemarin
-    unread: 0,
-    messages: [
-      { id: 1, text: "Mas, jadwal kunjungan saya kapan ya?", isAdmin: false, time: "14:00", type: "text" },
-      { id: 2, text: "Jadwal kunjungan Ibu hari Jumat pukul 10.00", isAdmin: true, time: "14:05", type: "text" },
-      { id: 3, text: "Oke, mas. Terima kasih.", isAdmin: false, time: "14:10", type: "text" },
-    ],
-  },
-  {
-    id: 5,
-    name: "Fajar Sadboy",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Fajar&backgroundColor=e8ffdb",
-    lastMessage: "Saya habis diputusin.",
-    lastTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // kemarin
-    unread: 0,
-    messages: [
-      { id: 1, text: "Dok, saya stress berat", isAdmin: false, time: "20:00", type: "text" },
-      { id: 2, text: "Saya habis diputusin.", isAdmin: false, time: "20:01", type: "text" },
-    ],
-  },
-  {
-    id: 6,
-    name: "Nala Kusmala",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Nala&backgroundColor=d1f4ff",
-    lastMessage: "Baik terima kasih infonya",
-    lastTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 hari lalu
-    unread: 0,
-    messages: [
-      { id: 1, text: "Halo, apakah ada layanan home visit?", isAdmin: false, time: "08:00", type: "text" },
-      { id: 2, text: "Ada, Bu. Kami menyediakan layanan home visit untuk area tertentu.", isAdmin: true, time: "08:10", type: "text" },
-      { id: 3, text: "Baik terima kasih infonya", isAdmin: false, time: "08:15", type: "text" },
-    ],
-  },
-  {
-    id: 7,
-    name: "Budi Santoso",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Budi&backgroundColor=b6e3f4",
-    lastMessage: "Siap, saya akan datang sesuai jadwal",
-    lastTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 hari lalu
-    unread: 0,
-    messages: [
-      { id: 1, text: "Kapan jadwal kontrol saya berikutnya?", isAdmin: false, time: "11:00", type: "text" },
-      { id: 2, text: "Jadwal kontrol Bapak tanggal 15 Juni", isAdmin: true, time: "11:05", type: "text" },
-      { id: 3, text: "Siap, saya akan datang sesuai jadwal", isAdmin: false, time: "11:10", type: "text" },
-    ],
-  },
-];
 
 // ─── MAIN COMPONENT ────────────────────────────────
 export default function Chat({ isOpen }) {
@@ -153,7 +54,10 @@ export default function Chat({ isOpen }) {
   const [filter, setFilter] = useState("semua"); // "semua" | "belum_dibaca"
   const [searchQuery, setSearchQuery] = useState("");
   const [messageInput, setMessageInput] = useState("");
-  const [chats, setChats] = useState(mockChats);
+  const [chats, setChats] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [adminUid, setAdminUid] = useState(null);
+  
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState(null); // { file, name, isImage, url }
   const messagesEndRef = useRef(null);
@@ -161,10 +65,47 @@ export default function Chat({ isOpen }) {
   const imageInputRef = useRef(null);
   const attachMenuRef = useRef(null);
 
+  // Listen to auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setAdminUid(user.uid);
+      } else {
+        setAdminUid(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to real-time chat rooms
+  useEffect(() => {
+    if (!adminUid) return;
+    const unsubscribe = subscribeAdminChatRooms((roomList) => {
+      setChats(roomList);
+    });
+    return () => unsubscribe();
+  }, [adminUid]);
+
+  // Subscribe to real-time messages for active room
+  useEffect(() => {
+    if (!activeChat) {
+      setMessages([]);
+      return;
+    }
+    
+    // Mark chat room as read
+    markChatAsRead(activeChat);
+
+    const unsubscribe = subscribeMessages(activeChat, (newMsgs) => {
+      setMessages(newMsgs);
+    });
+    return () => unsubscribe();
+  }, [activeChat]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChat, chats]);
+  }, [messages, activeChat]);
 
   // Close attach menu on outside click
   useEffect(() => {
@@ -187,56 +128,39 @@ export default function Chat({ isOpen }) {
       chat.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const activeChatData = chats.find((c) => c.id === activeChat);
+  const activeChatData = activeChat ? chats.find((c) => c.id === activeChat) : null;
+  if (activeChatData) {
+    activeChatData.messages = messages;
+  }
 
   // Send message
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageInput.trim() && !attachmentPreview) return;
+    if (!activeChat || !adminUid) return;
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-
-    setChats((prev) =>
-      prev.map((chat) => {
-        if (chat.id !== activeChat) return chat;
-
-        const newMessages = [...chat.messages];
-
-        // If attachment
-        if (attachmentPreview) {
-          newMessages.push({
-            id: Date.now(),
-            text: "",
-            isAdmin: true,
-            time: timeStr,
-            type: attachmentPreview.isImage ? "image" : "document",
-            imageUrl: attachmentPreview.isImage ? attachmentPreview.url : undefined,
-            fileName: !attachmentPreview.isImage ? attachmentPreview.name : undefined,
+    const textToSend = messageInput.trim();
+    setMessageInput(""); // Clear immediately for snappy UI
+    
+    try {
+      if (attachmentPreview) {
+        const file = attachmentPreview.file;
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Url = reader.result;
+          await sendChatMessage(activeChat, adminUid, textToSend, attachmentPreview.isImage ? "image" : "document", {
+            url: base64Url,
+            name: file.name
           });
-        }
-
-        // If text
-        if (messageInput.trim()) {
-          newMessages.push({
-            id: Date.now() + 1,
-            text: messageInput.trim(),
-            isAdmin: true,
-            time: timeStr,
-            type: "text",
-          });
-        }
-
-        return {
-          ...chat,
-          messages: newMessages,
-          lastMessage: messageInput.trim() || (attachmentPreview?.isImage ? "📷 Foto" : "📄 Dokumen"),
-          lastTime: now,
         };
-      })
-    );
-
-    setMessageInput("");
-    setAttachmentPreview(null);
+        reader.readAsDataURL(file);
+        setAttachmentPreview(null);
+      } else {
+        await sendChatMessage(activeChat, adminUid, textToSend, "text");
+      }
+    } catch (err) {
+      console.error("Gagal mengirim pesan:", err);
+      alert("Gagal mengirim pesan.");
+    }
   };
 
   // Handle file selection

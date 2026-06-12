@@ -14,6 +14,15 @@ import {
   ExternalLink,
   Clock,
 } from "lucide-react";
+import { 
+  subscribeAdminNotifications, 
+  assignNurseAndAcceptBooking, 
+  rejectBooking, 
+  verifyPayment 
+} from "../services/firestoreService";
+import { db } from "../config/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+
 
 // ─── TIME FORMATTER ────────────────────────────────
 function formatNotifTime(date) {
@@ -203,10 +212,40 @@ const mockNotifications = [
 export default function Notifikasi({ isOpen }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(mockNotifications);
+
+  const [rawNotifications, setRawNotifications] = useState([]);
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [filter, setFilter] = useState("semua"); // "semua" | "belum_dibaca"
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [activeNurses, setActiveNurses] = useState([]);
+  const [selectedNurseId, setSelectedNurseId] = useState("");
+  const [rejectId, setRejectId] = useState(null);
+  const [alasan, setAlasan] = useState("");
+
+  // Subscribe to real-time compiled notifications
+  useEffect(() => {
+    const unsubscribe = subscribeAdminNotifications((list) => {
+      setRawNotifications(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to active on-shift nurses
+  useEffect(() => {
+    const qNurses = query(collection(db, "users"), where("status", "==", "on_shift"));
+    const unsubscribeNurses = onSnapshot(qNurses, (snapshot) => {
+      const nursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setActiveNurses(nursesData);
+    });
+    return () => unsubscribeNurses();
+  }, []);
+
+  // Map notifications to include local storage read status
+  const notifications = rawNotifications.map((n) => ({
+    ...n,
+    is_read: localStorage.getItem(`read_notif_${n.id}`) === "true"
+  }));
 
   // Open specific notif from location state (e.g. from popup click)
   useEffect(() => {
@@ -217,18 +256,20 @@ export default function Notifikasi({ isOpen }) {
         markAsRead(notif.id);
       }
     }
-  }, [location.state]);
+  }, [location.state, rawNotifications]);
 
   // Mark as read
   const markAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+    localStorage.setItem(`read_notif_${id}`, "true");
+    setRawNotifications((prev) => [...prev]);
   };
 
   // Mark all as read
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    rawNotifications.forEach((n) => {
+      localStorage.setItem(`read_notif_${n.id}`, "true");
+    });
+    setRawNotifications((prev) => [...prev]);
   };
 
   // Handle select notification
@@ -238,57 +279,60 @@ export default function Notifikasi({ isOpen }) {
   };
 
   // Handle accept booking
-  const handleAcceptBooking = (notif) => {
-    alert(`Booking ${notif.id_pesanan} dari ${notif.pasien} telah di-Accept!`);
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === notif.id
-          ? { ...n, actionType: "info", judul: "Booking Dikonfirmasi" }
-          : n
-      )
-    );
-    setSelectedNotif((prev) =>
-      prev?.id === notif.id
-        ? { ...prev, actionType: "info", judul: "Booking Dikonfirmasi" }
-        : prev
-    );
+  const handleAcceptBooking = async (notif) => {
+    if (!selectedNurseId) {
+      alert("Pilih perawat yang bertugas terlebih dahulu!");
+      return;
+    }
+    const nurse = activeNurses.find((n) => n.id === selectedNurseId);
+    if (!nurse) return;
+
+    try {
+      await assignNurseAndAcceptBooking(
+        notif.bookingId,
+        notif.id_pesanan,
+        nurse.id,
+        nurse.nama
+      );
+      markAsRead(notif.id);
+      setSelectedNotif(null);
+      setSelectedNurseId("");
+      alert("Booking berhasil dikonfirmasi dan perawat telah ditugaskan!");
+    } catch (e) {
+      alert("Gagal melakukan verifikasi booking: " + e.message);
+    }
   };
 
   // Handle reject booking
-  const handleRejectBooking = (notif) => {
-    if (confirm(`Yakin menolak booking ${notif.id_pesanan} dari ${notif.pasien}?`)) {
-      alert(`Booking ${notif.id_pesanan} telah di-Reject.`);
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notif.id
-            ? { ...n, actionType: "info", judul: "Booking Ditolak" }
-            : n
-        )
-      );
-      setSelectedNotif((prev) =>
-        prev?.id === notif.id
-          ? { ...prev, actionType: "info", judul: "Booking Ditolak" }
-          : prev
-      );
+  const handleRejectBooking = async (notif, reason) => {
+    if (!reason) {
+      alert("Harap masukkan alasan penolakan!");
+      return;
+    }
+    try {
+      await rejectBooking(notif.bookingId, notif.id_pesanan, reason);
+      markAsRead(notif.id);
+      setSelectedNotif(null);
+      setRejectId(null);
+      setAlasan("");
+      alert("Pesanan berhasil ditolak!");
+    } catch (e) {
+      alert("Gagal menolak pesanan: " + e.message);
     }
   };
 
   // Handle verify payment
-  const handleVerifyPayment = (notif) => {
-    alert(`Pembayaran ${notif.id_pesanan} dari ${notif.pasien} telah diverifikasi sebagai Lunas!`);
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === notif.id
-          ? { ...n, actionType: "info", judul: "Pembayaran Berhasil Diverifikasi" }
-          : n
-      )
-    );
-    setSelectedNotif((prev) =>
-      prev?.id === notif.id
-        ? { ...prev, actionType: "info", judul: "Pembayaran Berhasil Diverifikasi" }
-        : prev
-    );
+  const handleVerifyPayment = async (notif) => {
+    try {
+      await verifyPayment(notif.bookingId, "Selesai", "selesai");
+      markAsRead(notif.id);
+      setSelectedNotif(null);
+      alert("Pembayaran berhasil diverifikasi!");
+    } catch (e) {
+      alert("Gagal memverifikasi pembayaran: " + e.message);
+    }
   };
+
 
   // Filtered
   const filteredNotifs = notifications
@@ -548,43 +592,79 @@ export default function Notifikasi({ isOpen }) {
 
                 {/* Action Buttons */}
                 {selectedNotif.actionType === "booking_confirm" && (
-                  <div className="mt-6 flex items-center gap-3">
-                    <button
-                      onClick={() => handleAcceptBooking(selectedNotif)}
-                      className="
-                        flex-1
-                        py-3
-                        rounded-xl
-                        bg-[#818807]
-                        hover:bg-[#6e7406]
-                        text-white
-                        font-semibold text-sm
-                        flex items-center justify-center gap-2
-                        transition-colors
-                        shadow-sm
-                      "
-                    >
-                      <Check size={18} />
-                      Terima Booking
-                    </button>
-                    <button
-                      onClick={() => handleRejectBooking(selectedNotif)}
-                      className="
-                        flex-1
-                        py-3
-                        rounded-xl
-                        bg-white
-                        border-2 border-red-400
-                        text-red-500
-                        hover:bg-red-50
-                        font-semibold text-sm
-                        flex items-center justify-center gap-2
-                        transition-colors
-                      "
-                    >
-                      <X size={18} />
-                      Tolak Booking
-                    </button>
+                  <div className="mt-6 flex flex-col gap-4">
+                    {/* Choose Nurse Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-gray-500 uppercase">Pilih Perawat Bertugas</label>
+                      <select
+                        value={selectedNurseId}
+                        onChange={(e) => setSelectedNurseId(e.target.value)}
+                        className="w-full h-11 border border-gray-200 rounded-xl px-4 text-sm outline-none focus:border-[#214E8A]"
+                      >
+                        <option value="">-- Pilih Perawat Bertugas --</option>
+                        {activeNurses.map((nurse) => (
+                          <option key={nurse.id} value={nurse.id}>
+                            {nurse.nama} (On Shift)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleAcceptBooking(selectedNotif)}
+                        className="
+                          flex-1
+                          py-3
+                          rounded-xl
+                          bg-[#818807]
+                          hover:bg-[#6e7406]
+                          text-white
+                          font-semibold text-sm
+                          flex items-center justify-center gap-2
+                          transition-colors
+                          shadow-sm
+                        "
+                      >
+                        <Check size={18} />
+                        Terima Booking
+                      </button>
+                      <button
+                        onClick={() => setRejectId(selectedNotif.id)}
+                        className="
+                          flex-1
+                          py-3
+                          rounded-xl
+                          bg-white
+                          border-2 border-red-400
+                          text-red-500
+                          hover:bg-red-50
+                          font-semibold text-sm
+                          flex items-center justify-center gap-2
+                          transition-colors
+                        "
+                      >
+                        <X size={18} />
+                        Tolak Booking
+                      </button>
+                    </div>
+
+                    {rejectId === selectedNotif.id && (
+                      <div className="flex gap-2 w-full mt-2 border-t border-gray-100 pt-4">
+                        <input
+                          className="border border-gray-200 p-2.5 w-full text-xs rounded-xl focus:outline-none focus:border-[#214E8A]"
+                          placeholder="Masukkan alasan penolakan..."
+                          value={alasan}
+                          onChange={(e) => setAlasan(e.target.value)}
+                        />
+                        <button
+                          onClick={() => handleRejectBooking(selectedNotif, alasan)}
+                          className="bg-[#214E8A] hover:bg-[#1B2559] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+                        >
+                          Kirim
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

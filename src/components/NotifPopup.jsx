@@ -53,45 +53,14 @@ function getNotifIconBg(type) {
   }
 }
 
-// Mock data
-const recentNotifs = [
-  {
-    id: 1,
-    type: "booking",
-    judul: "Booking Baru Masuk",
-    pesan: "Abyan Faza telah melakukan booking layanan Perawatan Luka.",
-    waktu: new Date(),
-    is_read: false,
-  },
-  {
-    id: 2,
-    type: "pembayaran",
-    judul: "Pembayaran Baru Terdeteksi",
-    pesan: "Siti Kusmini telah menyelesaikan pembayaran untuk layanan Fisioterapi.",
-    waktu: new Date(Date.now() - 15 * 60 * 1000),
-    is_read: false,
-  },
-  {
-    id: 3,
-    type: "verifikasi",
-    judul: "Menunggu Verifikasi Pembayaran",
-    pesan: "Dedi Kokbuzer mengirim bukti transfer sebesar Rp 250.000.",
-    waktu: new Date(Date.now() - 45 * 60 * 1000),
-    is_read: false,
-  },
-  {
-    id: 4,
-    type: "perawat_baru",
-    judul: "Pendaftaran Perawat Baru",
-    pesan: "Bintang Gumilang, S.Kep telah mendaftar sebagai perawat.",
-    waktu: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    is_read: true,
-  },
-];
-
-export default function NotifPopup() {
+export default function NotifPopup({ notifications = [], markAsRead }) {
   const navigate = useNavigate();
-  const unreadCount = recentNotifs.filter((n) => !n.is_read).length;
+
+  // Filter unread count based on local storage
+  const getIsRead = (id) => localStorage.getItem(`read_notif_${id}`) === "true";
+  const unreadCount = notifications.filter((n) => !getIsRead(n.id)).length;
+
+  const displayNotifs = notifications.slice(0, 4);
 
   return (
     <div
@@ -121,46 +90,59 @@ export default function NotifPopup() {
 
       {/* Notif List */}
       <div className="max-h-[340px] overflow-y-auto">
-        {recentNotifs.map((notif) => (
-          <div
-            key={notif.id}
-            onClick={() => navigate("/notifikasi", { state: { activeNotif: notif.id } })}
-            className={`
-              flex items-start gap-3
-              px-5 py-3.5
-              cursor-pointer
-              transition-colors
-              border-b border-gray-50
-              last:border-b-0
-              ${!notif.is_read ? "bg-[#F8FAFF]" : "hover:bg-gray-50"}
-            `}
-          >
-            {/* Icon */}
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${getNotifIconBg(notif.type)}`}>
-              {getNotifIcon(notif.type)}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className={`text-sm leading-snug ${!notif.is_read ? "font-bold text-[#1B2559]" : "font-semibold text-gray-600"}`}>
-                  {notif.judul}
-                </p>
-                <span className={`text-[11px] flex-shrink-0 mt-0.5 ${!notif.is_read ? "text-[#214E8A] font-semibold" : "text-gray-400"}`}>
-                  {formatNotifTime(notif.waktu)}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                {notif.pesan}
-              </p>
-            </div>
-
-            {/* Unread dot */}
-            {!notif.is_read && (
-              <span className="w-2.5 h-2.5 bg-[#214E8A] rounded-full flex-shrink-0 mt-1.5" />
-            )}
+        {displayNotifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <Bell size={32} strokeWidth={1.5} />
+            <p className="mt-2 text-xs">Tidak ada notifikasi baru</p>
           </div>
-        ))}
+        ) : (
+          displayNotifs.map((notif) => {
+            const isRead = getIsRead(notif.id);
+            return (
+              <div
+                key={notif.id}
+                onClick={() => {
+                  if (markAsRead) markAsRead(notif.id);
+                  navigate("/notifikasi", { state: { activeNotif: notif.id } });
+                }}
+                className={`
+                  flex items-start gap-3
+                  px-5 py-3.5
+                  cursor-pointer
+                  transition-colors
+                  border-b border-gray-50
+                  last:border-b-0
+                  ${!isRead ? "bg-[#F8FAFF]" : "hover:bg-gray-50"}
+                `}
+              >
+                {/* Icon */}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${getNotifIconBg(notif.type)}`}>
+                  {getNotifIcon(notif.type)}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm leading-snug ${!isRead ? "font-bold text-[#1B2559]" : "font-semibold text-gray-600"}`}>
+                      {notif.judul}
+                    </p>
+                    <span className={`text-[11px] flex-shrink-0 mt-0.5 ${!isRead ? "text-[#214E8A] font-semibold" : "text-gray-400"}`}>
+                      {formatNotifTime(new Date(notif.waktu))}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                    {notif.pesan}
+                  </p>
+                </div>
+
+                {/* Unread dot */}
+                {!isRead && (
+                  <span className="w-2.5 h-2.5 bg-[#214E8A] rounded-full flex-shrink-0 mt-1.5" />
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Footer */}

@@ -12,7 +12,7 @@ export default function Pasien2({ isOpen }) {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     setLoading(true);

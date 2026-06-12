@@ -572,15 +572,29 @@ export function subscribeTransactions(onUpdate, onError) {
       // Find pembayaran matching this booking ID
       const payment = latestPayments.find((p) => p.bookingId === bId);
       
-      // Get patient name
+      // Get patient name and avatar details
       const patientId = bData.pasien?.id_pasien || "";
-      const patientName = userCache[patientId] || "Pasien";
+      const patientData = userCache[patientId] || {};
+      const patientName = patientData.name || "Pasien";
+      const avatarIdx = patientData.avatarIndex !== undefined ? patientData.avatarIndex : -1;
+      const patientImg = patientData.photoBase64
+        ? `data:image/jpeg;base64,${patientData.photoBase64}`
+        : (avatarIdx >= 0 && avatars[avatarIdx] ? avatars[avatarIdx] : defaultAvatarPlaceholder);
 
       // Map status
       const paymentStatus = payment?.status || "pending";
-      let uiStatus = "Lunas";
-      if (paymentStatus.toLowerCase() === "batal" || paymentStatus.toLowerCase() === "tidak selesai") {
+      let uiStatus = "Belum Bayar";
+      const lowerStatus = paymentStatus.toLowerCase();
+      if (lowerStatus === "selesai" || lowerStatus === "lunas") {
+        uiStatus = "Lunas";
+      } else if (lowerStatus === "batal" || lowerStatus === "tidak selesai") {
         uiStatus = "Batal";
+      } else if (lowerStatus === "menunggu validasi" || lowerStatus === "selesai & menunggu validasi") {
+        uiStatus = "Menunggu Verifikasi";
+      } else if (lowerStatus === "pending") {
+        uiStatus = "Belum Bayar";
+      } else {
+        uiStatus = paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1);
       }
 
       // Map method
@@ -598,6 +612,7 @@ export function subscribeTransactions(onUpdate, onError) {
         id_pesanan: `#${bId.substring(0, 6).toUpperCase()}`,
         id_pasien: patientId,
         nama_pasien: patientName,
+        img: patientImg,
         layanan: bData.layanan?.nama_layanan || "Layanan",
         jam_booking: bookingTime instanceof Timestamp
           ? bookingTime.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })
@@ -610,8 +625,16 @@ export function subscribeTransactions(onUpdate, onError) {
         status_detail: paymentStatus === "selesai" ? "Selesai" : paymentStatus === "menunggu validasi" || paymentStatus === "Selesai & Menunggu Validasi" ? "Selesai & Menunggu Validasi" : "Menunggu Validasi",
         metode_pembayaran: uiMethod,
         harga: payment?.total_bayar || 0,
+        bukti_pembayaran: payment?.bukti_pembayaran || null,
         created_at: bookingTime
       });
+    });
+
+    // Sort by booking/payment time descending
+    list.sort((a, b) => {
+      const timeA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || 0);
+      const timeB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || 0);
+      return timeB - timeA;
     });
 
     onUpdate(list);
@@ -621,7 +644,12 @@ export function subscribeTransactions(onUpdate, onError) {
   const qUsers = query(collection(db, "users"), where("id_role", "==", "/roles/3"));
   const unsubUsers = onSnapshot(qUsers, (snapshot) => {
     snapshot.forEach((uDoc) => {
-      userCache[uDoc.id] = toTitleCase(uDoc.data().nama || "");
+      const uData = uDoc.data();
+      userCache[uDoc.id] = {
+        name: toTitleCase(uData.nama || ""),
+        photoBase64: uData.photoBase64 || null,
+        avatarIndex: uData.avatar_index !== undefined ? parseInt(uData.avatar_index) : -1
+      };
     });
     emitUpdates();
   }, onError);
@@ -685,4 +713,180 @@ export async function verifyPayment(bookingId, statusDetail, status) {
   }
 }
 
+// Subscribe to real-time compiled notifications for Admin
+export function subscribeAdminNotifications(onUpdate, onError) {
+  let latestBookings = [];
+  let latestPayments = [];
+  let userCache = {};
 
+  const emitUpdates = () => {
+    const notificationsList = [];
+
+    // 1. Process Bookings (status == "Menunggu Verifikasi")
+    latestBookings.forEach((bDoc) => {
+      const bData = bDoc.data;
+      const bId = bDoc.id;
+      const patientId = bData.pasien?.id_pasien || "";
+      const patientName = userCache[patientId] || bData.pasien?.nama || "Seseorang";
+      const layananName = bData.layanan?.nama_layanan || bData.layanan || "Layanan";
+
+      if (bData.status === "Menunggu Verifikasi") {
+        notificationsList.push({
+          id: `booking_${bId}`,
+          bookingId: bId,
+          type: "booking",
+          judul: "Booking Baru Masuk",
+          pesan: `${patientName} telah melakukan booking layanan ${layananName}.`,
+          waktu: bData.created_at ? bData.created_at.toDate() : new Date(),
+          is_read: false,
+          pasien: patientName,
+          layanan: layananName,
+          id_pesanan: bData.id_pesanan || `#${bId.substring(0, 6).toUpperCase()}`,
+          actionType: "booking_confirm",
+        });
+      }
+    });
+
+    // 2. Process Payments (status == "menunggu validasi" or "Selesai & Menunggu Validasi")
+    latestPayments.forEach((pDoc) => {
+      const pData = pDoc;
+      const bookingId = pData.bookingId;
+      const bDoc = latestBookings.find((b) => b.id === bookingId);
+      const bData = bDoc?.data;
+      const patientId = bData?.pasien?.id_pasien || "";
+      const patientName = userCache[patientId] || bData?.pasien?.nama || "Seseorang";
+      const layananName = bData?.layanan?.nama_layanan || bData?.layanan || "Layanan";
+
+      if (pData.status === "menunggu validasi" || pData.status === "Selesai & Menunggu Validasi") {
+        notificationsList.push({
+          id: `payment_${pData.id}`,
+          bookingId: bookingId,
+          paymentDocId: pData.id,
+          type: "pembayaran",
+          judul: "Pembayaran Baru Terdeteksi",
+          pesan: `${patientName} telah menyelesaikan pembayaran sebesar Rp ${pData.total_bayar || 0} melalui ${pData.metode_pembayaran || "QRIS"}. Status pembayaran menunggu verifikasi admin.`,
+          waktu: pData.tanggal_bayar ? pData.tanggal_bayar.toDate() : (bData?.created_at ? bData.created_at.toDate() : new Date()),
+          is_read: false,
+          pasien: patientName,
+          layanan: layananName,
+          id_pesanan: bData?.id_pesanan || `#${bookingId.substring(0, 6).toUpperCase()}`,
+          nominal: `Rp ${pData.total_bayar || 0}`,
+          metode: pData.metode_pembayaran || "QRIS",
+          actionType: "payment_verify",
+        });
+      }
+    });
+
+    // Sort by waktu descending
+    notificationsList.sort((a, b) => b.waktu - a.waktu);
+
+    onUpdate(notificationsList);
+  };
+
+  // 1. Listen to users
+  const qUsers = query(collection(db, "users"), where("id_role", "==", "/roles/3"));
+  const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+    snapshot.forEach((uDoc) => {
+      userCache[uDoc.id] = toTitleCase(uDoc.data().nama || "");
+    });
+    emitUpdates();
+  }, onError);
+
+  // 2. Listen to bookings
+  const qBookings = collection(db, "bookings");
+  const unsubBookings = onSnapshot(qBookings, (snapshot) => {
+    const bookingsList = [];
+    snapshot.forEach((docSnap) => {
+      bookingsList.push({
+        id: docSnap.id,
+        data: docSnap.data()
+      });
+    });
+    latestBookings = bookingsList;
+    emitUpdates();
+  }, onError);
+
+  // 3. Listen to pembayaran collection group
+  const qPayments = collectionGroup(db, "pembayaran");
+  const unsubPayments = onSnapshot(qPayments, (snapshot) => {
+    const paymentsList = [];
+    snapshot.forEach((docSnap) => {
+      const bookingId = docSnap.ref.parent.parent?.id;
+      if (bookingId) {
+        paymentsList.push({
+          id: docSnap.id,
+          bookingId,
+          ...docSnap.data()
+        });
+      }
+    });
+    latestPayments = paymentsList;
+    emitUpdates();
+  }, onError);
+
+  return () => {
+    unsubUsers();
+    unsubBookings();
+    unsubPayments();
+  };
+}
+
+// Accept booking and assign nurse
+export async function assignNurseAndAcceptBooking(bookingId, orderId, nurseId, nurseName) {
+  try {
+    // Update bookings
+    await updateDoc(doc(db, "bookings", bookingId), {
+      status: "Terjadwal",
+      perawat: {
+        id_perawat: nurseId,
+        nama: nurseName
+      }
+    });
+
+    // Update pesanan
+    if (orderId) {
+      const q = query(collection(db, "pesanan"), where("id_pesanan", "==", orderId));
+      const res = await getDocs(q);
+      const promises = res.docs.map((d) => {
+        return updateDoc(doc(db, "pesanan", d.id), {
+          status: "Terjadwal",
+          status_detail: "Menunggu Kedatangan",
+          id_perawat: nurseId,
+          nama_perawat: nurseName
+        });
+      });
+      await Promise.all(promises);
+    }
+  } catch (error) {
+    console.error("Error in assignNurseAndAcceptBooking:", error);
+    throw error;
+  }
+}
+
+// Reject booking
+export async function rejectBooking(bookingId, orderId, reason) {
+  try {
+    // Update bookings
+    await updateDoc(doc(db, "bookings", bookingId), {
+      status: "Ditolak",
+      alasan: reason
+    });
+
+    // Update pesanan
+    if (orderId) {
+      const q = query(collection(db, "pesanan"), where("id_pesanan", "==", orderId));
+      const res = await getDocs(q);
+      const promises = res.docs.map((d) => {
+        return updateDoc(doc(db, "pesanan", d.id), {
+          status: "Ditolak",
+          status_detail: "Ditolak",
+          alasan_tolak: reason
+        });
+      });
+      await Promise.all(promises);
+    }
+  } catch (error) {
+    console.error("Error in rejectBooking:", error);
+    throw error;
+  }
+}

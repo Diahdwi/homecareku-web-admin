@@ -6,8 +6,9 @@ import NotifPopup from "./NotifPopup";
 import { auth, db } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { avatars, defaultAvatarPlaceholder } from "../services/firestoreService";
+import { avatars, defaultAvatarPlaceholder, subscribeAdminNotifications } from "../services/firestoreService";
 import { subscribeAdminChatRooms } from "../services/chatService";
+
 
 export default function Header() {
   const navigate = useNavigate();
@@ -30,6 +31,26 @@ export default function Header() {
 
   // Real-time unread chat count
   const [totalUnreadChat, setTotalUnreadChat] = useState(0);
+
+  // Real-time admin notifications
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAdminNotifications((list) => {
+      setNotifications(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const unreadNotifCount = notifications.filter(
+    (n) => localStorage.getItem(`read_notif_${n.id}`) !== "true"
+  ).length;
+
+  const markNotifAsRead = (id) => {
+    localStorage.setItem(`read_notif_${id}`, "true");
+    setNotifications((prev) => [...prev]);
+  };
+
 
   useEffect(() => {
     const unsubscribe = subscribeAdminChatRooms((roomList) => {
@@ -218,13 +239,20 @@ export default function Header() {
             <Bell size={20} className="text-[#214E8A]" />
 
             {/* Unread Badge */}
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-              3
-            </span>
+            {unreadNotifCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {unreadNotifCount}
+              </span>
+            )}
           </button>
 
           {/* Hover Popup */}
-          {showNotifPopup && <NotifPopup />}
+          {showNotifPopup && (
+            <NotifPopup
+              notifications={notifications}
+              markAsRead={markNotifAsRead}
+            />
+          )}
         </div>
 
         {/* CHAT */}

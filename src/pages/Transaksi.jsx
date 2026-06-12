@@ -15,9 +15,12 @@ export default function Transaksi({ isOpen }) {
   const [filterService, setFilterService] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
 
+  // State to view selected payment proof
+  const [selectedBukti, setSelectedBukti] = useState(null);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
+  const itemsPerPage = 15;
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -80,12 +83,6 @@ export default function Transaksi({ isOpen }) {
         price = 100000; // Fallback default
       }
 
-      // Map status
-      let uiStatus = "Lunas";
-      if (t.status_detail === "Batal" || t.status === "Batal" || t.status === "Tidak Selesai") {
-        uiStatus = "Batal";
-      }
-
       return {
         id: t.id,
         id_pesanan: t.id_pesanan,
@@ -94,10 +91,11 @@ export default function Transaksi({ isOpen }) {
         dateFormatted,
         time: t.jam_booking || "08:00",
         method: t.metode_pembayaran || "Tunai",
-        status: uiStatus,
+        status: t.status,
         price: price,
         service: t.layanan || "Layanan",
-        img: `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.nama_pasien || "Pasien"}&backgroundColor=b6e3f4`
+        img: t.img,
+        bukti_pembayaran: t.bukti_pembayaran
       };
     });
   }, [transactions, layananList]);
@@ -176,6 +174,21 @@ export default function Transaksi({ isOpen }) {
     filterMethod !== "Semua" || 
     filterService !== "Semua" || 
     filterStatus !== "Semua";
+
+  // Helper for dynamic status color class
+  const getStatusColorClass = (status) => {
+    switch (status) {
+      case "Lunas":
+        return "text-[#79B735] bg-[#79B735]/10 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
+      case "Batal":
+        return "text-red-500 bg-red-50 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
+      case "Menunggu Verifikasi":
+        return "text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
+      case "Belum Bayar":
+      default:
+        return "text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
+    }
+  };
 
   return (
     <div
@@ -321,6 +334,8 @@ export default function Transaksi({ isOpen }) {
                   <option value="Semua">Semua Status</option>
                   <option value="Lunas">Lunas</option>
                   <option value="Batal">Batal</option>
+                  <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
+                  <option value="Belum Bayar">Belum Bayar</option>
                 </select>
               </div>
 
@@ -372,6 +387,9 @@ export default function Transaksi({ isOpen }) {
                 <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
                   Layanan
                 </th>
+                <th className="text-right pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Bukti Pembayaran
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -414,13 +432,7 @@ export default function Transaksi({ isOpen }) {
 
                     {/* Status */}
                     <td className="py-4 text-sm">
-                      <span
-                        className={`font-semibold ${
-                          tx.status === "Lunas"
-                            ? "text-[#79B735]"
-                            : "text-red-500"
-                        }`}
-                      >
+                      <span className={getStatusColorClass(tx.status)}>
                         {tx.status}
                       </span>
                     </td>
@@ -434,11 +446,25 @@ export default function Transaksi({ isOpen }) {
                     <td className="py-4 text-sm font-medium text-[#1B2559]">
                       {tx.service}
                     </td>
+
+                    {/* Bukti Pembayaran */}
+                    <td className="py-4 text-sm font-medium text-right">
+                      {tx.bukti_pembayaran ? (
+                        <button
+                          onClick={() => setSelectedBukti(tx.bukti_pembayaran)}
+                          className="bg-[#214E8A] hover:bg-[#1B2559] text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shadow-sm"
+                        >
+                          Lihat Bukti
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={9} className="py-8 text-center text-gray-500 text-sm">
                     Tidak ada transaksi yang cocok dengan filter.
                   </td>
                 </tr>
@@ -470,6 +496,33 @@ export default function Transaksi({ isOpen }) {
           </div>
         )}
       </div>
+
+      {/* Modal Bukti Pembayaran */}
+      {selectedBukti && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full relative shadow-2xl animate-in fade-in duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Bukti Pembayaran</h3>
+              <button onClick={() => setSelectedBukti(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="w-full h-80 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+              <img
+                src={selectedBukti.startsWith("data:") ? selectedBukti : `data:image/jpeg;base64,${selectedBukti}`}
+                alt="Bukti Pembayaran"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <button
+              onClick={() => setSelectedBukti(null)}
+              className="mt-5 w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold text-sm transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -217,12 +217,7 @@ export default function Dashboard({ isOpen }) {
     endOfWeek.setHours(23, 59, 59, 999);
 
     transactions.forEach((tx) => {
-      let uiStatus = "Lunas";
-      if (tx.status_detail === "Batal" || tx.status === "Batal" || tx.status === "Tidak Selesai") {
-        uiStatus = "Batal";
-      }
-
-      if (uiStatus === "Lunas") {
+      if (tx.status === "Lunas") {
         let tgl = new Date();
         if (tx.tanggal_booking) {
           tgl = tx.tanggal_booking.toDate ? tx.tanggal_booking.toDate() : new Date(tx.tanggal_booking);
@@ -230,14 +225,17 @@ export default function Dashboard({ isOpen }) {
 
         if (tgl >= startOfWeek && tgl <= endOfWeek) {
           const dayIndex = tgl.getDay();
-          const matchingLayanan = layananList.find(
-            (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
-          );
-          let price = 100000;
-          if (matchingLayanan && matchingLayanan.harga) {
-            const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
-            if (!isNaN(parsed)) price = parsed;
+          let price = tx.harga || 0;
+          if (!price) {
+            const matchingLayanan = layananList.find(
+              (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
+            );
+            if (matchingLayanan && matchingLayanan.harga) {
+              const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
+              if (!isNaN(parsed)) price = parsed;
+            }
           }
+          if (!price) price = 100000;
           revenueByDay[dayIndex] += price;
         }
       }
@@ -295,23 +293,19 @@ export default function Dashboard({ isOpen }) {
 
   const recentPayments = useMemo(() => {
     return transactions
-      .filter((tx) => {
-        let uiStatus = "Lunas";
-        if (tx.status_detail === "Batal" || tx.status === "Batal" || tx.status === "Tidak Selesai") {
-          uiStatus = "Batal";
-        }
-        return uiStatus === "Lunas";
-      })
       .slice(0, 5)
       .map((tx) => {
-        const matchingLayanan = layananList.find(
-          (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
-        );
-        let price = 100000;
-        if (matchingLayanan && matchingLayanan.harga) {
-          const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
-          if (!isNaN(parsed)) price = parsed;
+        let price = tx.harga || 0;
+        if (!price) {
+          const matchingLayanan = layananList.find(
+            (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
+          );
+          if (matchingLayanan && matchingLayanan.harga) {
+            const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
+            if (!isNaN(parsed)) price = parsed;
+          }
         }
+        if (!price) price = 100000;
         return {
           id: tx.id,
           id_pesanan: tx.id_pesanan || "#A000",

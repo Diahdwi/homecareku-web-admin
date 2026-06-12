@@ -14,7 +14,7 @@ export default function Perawat2({ isOpen }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
+  const itemsPerPage = 15;
 
   const dropdownRef = useRef(null);
 

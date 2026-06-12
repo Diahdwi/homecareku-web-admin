@@ -30,50 +30,55 @@ export function subscribeAdminChatRooms(callback) {
     
     for (const key of Object.keys(data)) {
       const room = data[key];
-      // Admin only sees chats with patients directed to admin
-      if (room.type === "admin") {
+      // Admin sees chats with patients (type "admin") and nurses (type "admin_nurse")
+      if (room.type === "admin" || room.type === "admin_nurse") {
         let avatar = defaultAvatarPlaceholder;
         
-        // Try to map patient avatar from RTDB room first
-        if (room.patient_avatar) {
-          if (room.patient_avatar.startsWith("data:") || room.patient_avatar.startsWith("http")) {
-            avatar = room.patient_avatar;
+        const dbAvatar = room.patient_avatar || room.nurse_avatar;
+        const dbName = room.patient_name || room.nurse_name || (room.type === "admin_nurse" ? "Perawat" : "Pasien");
+        const dbUserId = room.patient_id || room.nurse_id;
+        
+        // Try to map avatar from RTDB room first
+        if (dbAvatar) {
+          if (dbAvatar.startsWith("data:") || dbAvatar.startsWith("http")) {
+            avatar = dbAvatar;
           } else {
-            avatar = `data:image/jpeg;base64,${room.patient_avatar}`;
+            avatar = `data:image/jpeg;base64,${dbAvatar}`;
           }
         } else if (room.avatarIndex !== undefined && room.avatarIndex >= 0 && avatars[room.avatarIndex]) {
           avatar = avatars[room.avatarIndex];
-        } else if (room.patient_id) {
-          // Fallback: fetch patient profile from Firestore
+        } else if (dbUserId) {
+          // Fallback: fetch profile from Firestore
           try {
-            const patientDocRef = doc(db, "users", room.patient_id);
-            const patientSnap = await getDoc(patientDocRef);
-            if (patientSnap.exists()) {
-              const pData = patientSnap.data();
+            const userDocRef = doc(db, "users", dbUserId);
+            const userSnap = await getDoc(userDocRef);
+            if (userSnap.exists()) {
+              const pData = userSnap.data();
               const pAvatarIdx = pData.avatar_index !== undefined ? parseInt(pData.avatar_index) : -1;
               if (pData.photoBase64) {
                 avatar = `data:image/jpeg;base64,${pData.photoBase64}`;
               } else if (pAvatarIdx >= 0 && avatars[pAvatarIdx]) {
                 avatar = avatars[pAvatarIdx];
               } else {
-                // Use DiceBear as last resort based on patient name
-                const seed = room.patient_name || "Pasien";
-                avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4`;
+                // Use DiceBear as last resort based on name
+                avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(dbName)}&backgroundColor=b6e3f4`;
               }
             }
           } catch (err) {
-            console.warn("Could not fetch patient avatar from Firestore:", err);
+            console.warn("Could not fetch avatar from Firestore:", err);
           }
         }
 
         roomsList.push({
           id: key,
-          name: toTitleCase(room.patient_name || "Pasien"),
+          name: toTitleCase(dbName),
           avatar: avatar,
           lastMessage: room.last_message || "",
           lastTime: room.last_message_at ? new Date(room.last_message_at) : new Date(room.created_at || Date.now()),
           unread: room.unread_admin || 0,
-          patientId: room.patient_id,
+          patientId: room.patient_id || "",
+          nurseId: room.nurse_id || "",
+          type: room.type, // "admin" or "admin_nurse"
           idBookings: room.id_bookings || ""
         });
       }
@@ -168,21 +173,23 @@ export async function sendChatMessage(roomId, adminUid, text, type = "text", fil
     // 2. Update room details
     const roomRef = ref(rtdb, `chat_rooms/${roomId}`);
     
-    // Increment patient unread count
+    // Increment patient/nurse unread count
     let roomSnap = await new Promise((resolve) => {
       onValue(roomRef, (snap) => resolve(snap), { onlyOnce: true });
     });
     
-    let currentUnreadPatient = 0;
+    let currentUnreadUser = 0;
+    let isNurse = false;
     if (roomSnap.exists()) {
       const roomVal = roomSnap.val();
-      currentUnreadPatient = roomVal.unread_patient || 0;
+      isNurse = roomVal.type === "admin_nurse";
+      currentUnreadUser = isNurse ? (roomVal.unread_nurse || 0) : (roomVal.unread_patient || 0);
     }
     
     await update(roomRef, {
       last_message: text || (type === "image" ? "📷 Foto" : "📄 Dokumen"),
       last_message_at: serverTimestamp(),
-      unread_patient: currentUnreadPatient + 1,
+      [isNurse ? "unread_nurse" : "unread_patient"]: currentUnreadUser + 1,
       unread_admin: 0 // Admin is the sender, so admin unread count is reset
     });
     

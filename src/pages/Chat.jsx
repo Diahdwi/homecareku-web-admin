@@ -52,7 +52,8 @@ function formatChatTime(date) {
 export default function Chat({ isOpen }) {
   const location = useLocation();
   const [activeChat, setActiveChat] = useState(location.state?.activeChat || null);
-  const [filter, setFilter] = useState("semua"); // "semua" | "belum_dibaca"
+  const [statusFilter, setStatusFilter] = useState("semua"); // "semua" | "belum_dibaca"
+  const [roleFilter, setRoleFilter] = useState(null); // null (all) | "pasien" | "perawat"
   const [searchQuery, setSearchQuery] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [chats, setChats] = useState([]);
@@ -122,7 +123,9 @@ export default function Chat({ isOpen }) {
   // Filtered chats
   const filteredChats = chats
     .filter((chat) => {
-      if (filter === "belum_dibaca") return chat.unread > 0;
+      if (statusFilter === "belum_dibaca" && chat.unread === 0) return false;
+      if (roleFilter === "pasien" && chat.type !== "admin") return false;
+      if (roleFilter === "perawat" && chat.type !== "admin_nurse") return false;
       return true;
     })
     .filter((chat) =>
@@ -231,36 +234,46 @@ export default function Chat({ isOpen }) {
             </div>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="px-4 pb-3 flex gap-2">
-            <button
-              onClick={() => setFilter("semua")}
-              className={`
-                px-4 py-2
-                rounded-full
-                text-sm font-semibold
-                transition-all
-                ${filter === "semua"
-                  ? "bg-[#214E8A] text-white shadow-md shadow-[#214E8A]/20"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"}
-              `}
-            >
-              Semua
-            </button>
-            <button
-              onClick={() => setFilter("belum_dibaca")}
-              className={`
-                px-4 py-2
-                rounded-full
-                text-sm font-semibold
-                transition-all
-                ${filter === "belum_dibaca"
-                  ? "bg-[#214E8A] text-white shadow-md shadow-[#214E8A]/20"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"}
-              `}
-            >
-              Belum Dibaca
-            </button>
+          {/* Filter Chips */}
+          <div className="px-3 pb-3 flex justify-between gap-1 items-center">
+            {[
+              { id: "semua", label: "Semua", type: "status" },
+              { id: "belum_dibaca", label: "Belum Dibaca", type: "status" },
+              { id: "pasien", label: "Pasien", type: "role" },
+              { id: "perawat", label: "Perawat", type: "role" },
+            ].map((tab) => {
+              const isActive = tab.type === "status"
+                ? statusFilter === tab.id
+                : roleFilter === tab.id;
+              
+              const handleClick = () => {
+                if (tab.type === "status") {
+                  setStatusFilter(tab.id);
+                } else {
+                  setRoleFilter(roleFilter === tab.id ? null : tab.id);
+                }
+              };
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={handleClick}
+                  className={`
+                    px-2 py-1.5
+                    rounded-full
+                    text-[11px] font-semibold
+                    transition-all
+                    cursor-pointer
+                    border flex-1 text-center whitespace-nowrap
+                    ${isActive
+                      ? "bg-[#214E8A] border-[#214E8A] text-white shadow-md shadow-[#214E8A]/20"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"}
+                  `}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Chat Items */}

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { useState, useEffect } from "react";
 
 import Sidebar from "./components/Sidebar";
+import NotificationListener from "./components/NotificationListener";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -44,6 +45,7 @@ function AdminLayout() {
 
   return (
     <div className="bg-[#ECECEC] min-h-screen">
+      <NotificationListener />
 
       {/* SIDEBAR */}
       {!isLoginPage && (

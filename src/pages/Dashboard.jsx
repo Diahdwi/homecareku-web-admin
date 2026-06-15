@@ -56,6 +56,35 @@ export default function Dashboard({ isOpen }) {
   // === STATE BARU: Untuk menyimpan perawat on_shift dan perawat yang dipilih admin ===
   const [activeNurses, setActiveNurses] = useState([]);
   const [selectedNurses, setSelectedNurses] = useState({}); // Menyimpan pilihan per tiap pesanan
+  const [todaySchedulesFromDb, setTodaySchedulesFromDb] = useState([]);
+
+  // === EFFECT: Ambil Data Jadwal Tindakan Hari Ini langsung dari Pesanan ===
+  useEffect(() => {
+    const q = collection(db, "pesanan");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const todayStr = new Date().toDateString();
+      const filtered = docs.filter(doc => {
+        if (!doc.tanggal_booking) return false;
+        const d = doc.tanggal_booking.toDate ? doc.tanggal_booking.toDate() : new Date(doc.tanggal_booking);
+        return d.toDateString() === todayStr;
+      });
+
+      filtered.sort((a, b) => {
+        const jamA = (a.jam_booking || '').toString();
+        const jamB = (b.jam_booking || '').toString();
+        const cmp = jamA.localeCompare(jamB);
+        if (cmp !== 0) return cmp;
+        const tA = a.created_at?.seconds || 0;
+        const tB = b.created_at?.seconds || 0;
+        return tA - tB;
+      });
+
+      setTodaySchedulesFromDb(filtered);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // === EFFECT: Ambil Data Perawat yang On Shift ===
   useEffect(() => {
@@ -150,6 +179,7 @@ export default function Dashboard({ isOpen }) {
 
     // Dapatkan data perawat yang dipilih
     const selectedNurseData = activeNurses.find(n => n.id === nurseId);
+    const order = pendingOrders.find(o => o.id_doc === id_doc);
 
     try {
       // 2. Update status dan data perawat di koleksi 'bookings' 
@@ -175,6 +205,35 @@ export default function Dashboard({ isOpen }) {
           });
         });
       }
+
+      // 4. Kirim Push Notification ke Perawat dan Pasien via Backend
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      if (order) {
+        // Notifikasi ke perawat
+        fetch(`${backendUrl}/api/pesanan/send-assignment-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nurseId: selectedNurseData.id,
+            patientName: order.pasien?.nama || order.nama,
+            bookingId: order.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif ke perawat:", err));
+
+        // Notifikasi ke pasien
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: order.pasien?.id_pasien,
+            statusDetail: "Menunggu Kedatangan",
+            bookingId: order.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif ke pasien:", err));
+      }
       
       alert("Pesanan berhasil diverifikasi dan perawat telah ditugaskan!");
     } catch (e) { 
@@ -184,6 +243,7 @@ export default function Dashboard({ isOpen }) {
 
   const handleTolak = async (id_doc, id_pesanan) => {
     if (!alasan) return alert("Harap isi alasan penolakan");
+    const order = pendingOrders.find(o => o.id_doc === id_doc);
     try {
       await updateDoc(doc(db, "bookings", id_doc), { status: "Ditolak", alasan: alasan });
       
@@ -196,6 +256,24 @@ export default function Dashboard({ isOpen }) {
             alasan_tolak: alasan      
         }));
       }
+
+      // Kirim Push Notification penolakan ke pasien
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      if (order) {
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: order.pasien?.id_pasien,
+            statusDetail: "Ditolak",
+            bookingId: order.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif penolakan ke pasien:", err));
+      }
+
       setRejectId(null);
       setAlasan("");
       alert("Pesanan ditolak");
@@ -500,30 +578,41 @@ export default function Dashboard({ isOpen }) {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 text-left">
+                  <th className="py-2 text-xs font-bold text-gray-400 uppercase">Antrean</th>
                   <th className="py-2 text-xs font-bold text-gray-400 uppercase">Pasien</th>
                   <th className="py-2 text-xs font-bold text-gray-400 uppercase">Layanan</th>
+                  <th className="py-2 text-xs font-bold text-gray-400 uppercase">Perawat</th>
                   <th className="py-2 text-xs font-bold text-gray-400 uppercase text-right">Jam</th>
                 </tr>
               </thead>
 
               <tbody>
-                {todaySchedules.length > 0 ? (
-                  todaySchedules.map((tx) => (
-                    <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="py-3 text-sm font-semibold text-[#1B2559]">
-                        {toTitleCase(tx.nama_pasien)}
-                      </td>
-                      <td className="py-3 text-sm text-gray-500">
-                        {tx.layanan}
-                      </td>
-                      <td className="py-3 text-sm font-bold text-[#214E8A] text-right">
-                        {tx.jam_booking}
-                      </td>
-                    </tr>
-                  ))
+                {todaySchedulesFromDb.length > 0 ? (
+                  todaySchedulesFromDb.map((tx, index) => {
+                    const queueNum = '#A' + String(index + 1).padStart(3, '0');
+                    return (
+                      <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                        <td className="py-3 text-sm font-bold text-[#818807]">
+                          {queueNum}
+                        </td>
+                        <td className="py-3 text-sm font-semibold text-[#1B2559]">
+                          {toTitleCase(tx.nama_pasien)}
+                        </td>
+                        <td className="py-3 text-sm text-gray-500">
+                          {tx.layanan}
+                        </td>
+                        <td className="py-3 text-sm text-gray-500">
+                          {tx.nama_perawat ? toTitleCase(tx.nama_perawat) : <span className="text-red-500 font-semibold">Belum Ditugaskan</span>}
+                        </td>
+                        <td className="py-3 text-sm font-bold text-[#214E8A] text-right">
+                          {tx.jam_booking}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={3} className="py-8 text-center text-gray-400 text-sm">
+                    <td colSpan={5} className="py-8 text-center text-gray-400 text-sm">
                       Tidak ada tindakan terjadwal hari ini.
                     </td>
                   </tr>

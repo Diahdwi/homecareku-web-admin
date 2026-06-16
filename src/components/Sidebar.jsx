@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   LogOut,
   X,
+  PackagePlus,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, setIsOpen }) {
@@ -30,6 +31,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       name: "Layanan",
       path: "/layanan",
       icon: <FolderHeart size={22} />,
+    },
+    {
+      name: "Add-On",
+      path: "/addon",
+      icon: <PackagePlus size={22} />,
     },
     {
       name: "Perawat",

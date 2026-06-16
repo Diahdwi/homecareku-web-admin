@@ -7,6 +7,7 @@ import NotificationListener from "./components/NotificationListener";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Layanan from "./pages/Layanan";
+import Addon from "./pages/Addon";
 import Perawat from "./pages/Perawat/Perawat1";
 import Perawat2 from "./pages/Perawat/Perawat2";
 import DetailPerawat from "./pages/Perawat/detail_perawat";
@@ -76,6 +77,15 @@ function AdminLayout() {
             path="/layanan"
             element={
               <Layanan
+                isOpen={isOpen}
+              />
+            }
+          />
+
+          <Route
+            path="/addon"
+            element={
+              <Addon
                 isOpen={isOpen}
               />
             }

@@ -452,34 +452,6 @@ export async function deletePatient(id) {
     throw error;
   }
 }
-export async function getPatientMedicalRecords(patientId) {
-  try {
-    const q = query(
-      collection(db, "pesanan"),
-      where("id_pasien", "==", patientId)
-    );
-    const querySnapshot = await getDocs(q);
-    const records = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      records.push({
-        id: doc.id,
-        layanan: data.nama_layanan || data.layanan || "Layanan",
-        tanggal: data.tanggal_booking instanceof Timestamp
-          ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-          : data.tanggal_booking || "",
-        waktu: data.waktu || "",
-        perawat: toTitleCase(data.nama_perawat || data.perawat || ""),
-        catatan: data.rekam_medis || data.catatan || ""
-      });
-    });
-    return records;
-  } catch (error) {
-    console.error("Error in getPatientMedicalRecords:", error);
-    throw error;
-  }
-}
-
 // Subscribe to real-time updates for Layanan
 export function subscribeLayanan(onUpdate, onError) {
   const q = collection(db, "layanan");

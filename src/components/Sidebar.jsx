@@ -179,8 +179,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 )) ||
                 (item.path === "/pasien" && (
                   location.pathname.startsWith("/pasien") ||
-                  location.pathname.startsWith("/detail_pasien") ||
-                  location.pathname.startsWith("/rekam_medis_pasien")
+                  location.pathname.startsWith("/detail_pasien")
                 ));
 
               return (

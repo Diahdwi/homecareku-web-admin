@@ -88,7 +88,7 @@ export default function Header() {
             const data = docSnap.data();
             const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
             const photoBase64 = data.photoBase64 || null;
-            
+
             let profileImg = defaultAvatarPlaceholder;
             if (photoBase64) {
               profileImg = `data:image/jpeg;base64,${photoBase64}`;
@@ -315,11 +315,10 @@ export default function Header() {
                     key={idx}
                     type="button"
                     onClick={() => handleAvatarSelect(idx)}
-                    className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${
-                      adminData && adminData.avatarIndex === idx && !adminData.photoBase64 
-                        ? "border-[#214E8A]" 
+                    className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${adminData && adminData.avatarIndex === idx && !adminData.photoBase64
+                        ? "border-[#214E8A]"
                         : "border-transparent"
-                    }`}
+                      }`}
                   >
                     <img src={url} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
                   </button>

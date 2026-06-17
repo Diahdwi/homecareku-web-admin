@@ -138,19 +138,6 @@ export default function DetailPasien({ isOpen }) {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-8 mb-8 border-b border-gray-200">
-            <button className="font-bold text-black pb-2 border-b-2 border-black">
-              Data Diri
-            </button>
-            <button 
-              onClick={() => navigate(`/rekam_medis_pasien/${id}`)}
-              className="font-bold text-gray-500 pb-2 hover:text-black transition-colors"
-            >
-              Rekam Medis
-            </button>
-          </div>
-
           {/* Data Fields */}
           <div className="space-y-6 mb-10 max-w-md">
             <div>

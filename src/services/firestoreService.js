@@ -468,34 +468,6 @@ export async function deletePatient(id) {
     throw error;
   }
 }
-export async function getPatientMedicalRecords(patientId) {
-  try {
-    const q = query(
-      collection(db, "pesanan"),
-      where("id_pasien", "==", patientId)
-    );
-    const querySnapshot = await getDocs(q);
-    const records = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      records.push({
-        id: doc.id,
-        layanan: data.nama_layanan || data.layanan || "Layanan",
-        tanggal: data.tanggal_booking instanceof Timestamp
-          ? data.tanggal_booking.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-          : data.tanggal_booking || "",
-        waktu: data.waktu || "",
-        perawat: toTitleCase(data.nama_perawat || data.perawat || ""),
-        catatan: data.rekam_medis || data.catatan || ""
-      });
-    });
-    return records;
-  } catch (error) {
-    console.error("Error in getPatientMedicalRecords:", error);
-    throw error;
-  }
-}
-
 // Subscribe to real-time updates for Layanan
 export function subscribeLayanan(onUpdate, onError) {
   const q = collection(db, "layanan");
@@ -903,6 +875,65 @@ export async function rejectBooking(bookingId, orderId, reason) {
     }
   } catch (error) {
     console.error("Error in rejectBooking:", error);
+    throw error;
+  }
+}
+
+// Subscribe to real-time updates for Addon
+export function subscribeAddons(onUpdate, onError) {
+  const q = collection(db, "add_on");
+  return onSnapshot(q, (querySnapshot) => {
+    const list = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      list.push({
+        id: doc.id,
+        nama_addon: data.nama_addon || "",
+        harga_default: data.harga_default || 0,
+      });
+    });
+    onUpdate(list);
+  }, (error) => {
+    console.error("Error subscribing to addons:", error);
+    if (onError) onError(error);
+  });
+}
+
+// Add new Addon
+export async function addAddon(addonData) {
+  try {
+    const docRef = await addDoc(collection(db, "add_on"), {
+      nama_addon: addonData.nama_addon,
+      harga_default: parseInt(addonData.harga_default) || 0,
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error in addAddon:", error);
+    throw error;
+  }
+}
+
+// Update Addon
+export async function updateAddon(id, addonData) {
+  try {
+    const docRef = doc(db, "add_on", id);
+    await updateDoc(docRef, {
+      nama_addon: addonData.nama_addon,
+      harga_default: parseInt(addonData.harga_default) || 0,
+    });
+  } catch (error) {
+    console.error("Error in updateAddon:", error);
+    throw error;
+  }
+}
+
+// Delete Addon
+export async function deleteAddon(id) {
+  try {
+    const docRef = doc(db, "add_on", id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error in deleteAddon:", error);
     throw error;
   }
 }

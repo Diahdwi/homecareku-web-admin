@@ -50,7 +50,7 @@ export default function LayananCard({
 
             <div className="flex items-center gap-2">
               <Wallet size={16} />
-              {layanan.harga}
+              {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(layanan.harga) || 0)}
             </div>
 
             <div className="flex items-center gap-2">

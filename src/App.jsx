@@ -7,6 +7,7 @@ import NotificationListener from "./components/NotificationListener";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Layanan from "./pages/Layanan";
+import Addon from "./pages/Addon";
 import Perawat from "./pages/Perawat/Perawat1";
 import Perawat2 from "./pages/Perawat/Perawat2";
 import DetailPerawat from "./pages/Perawat/detail_perawat";
@@ -15,7 +16,6 @@ import TambahPerawat from "./pages/Perawat/Tambah_perawat";
 import Pasien from "./pages/Pasien/Pasien1";
 import Pasien2 from "./pages/Pasien/Pasien2";
 import DetailPasien from "./pages/Pasien/detail_pasien";
-import RekamMedisPasien from "./pages/Pasien/rekam_medis_pasien";
 import Transaksi from "./pages/Transaksi";
 import Chat from "./pages/Chat";
 import Notifikasi from "./pages/Notifikasi";
@@ -82,6 +82,15 @@ function AdminLayout() {
           />
 
           <Route
+            path="/addon"
+            element={
+              <Addon
+                isOpen={isOpen}
+              />
+            }
+          />
+
+          <Route
             path="/perawat"
             element={<Perawat isOpen={isOpen} />}
           />
@@ -119,11 +128,6 @@ function AdminLayout() {
           <Route
             path="/detail_pasien/:id"
             element={<DetailPasien isOpen={isOpen} />}
-          />
-
-          <Route
-            path="/rekam_medis_pasien/:id"
-            element={<RekamMedisPasien isOpen={isOpen} />}
           />
 
           <Route

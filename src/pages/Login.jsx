@@ -1,18 +1,16 @@
-import { useState } from "react";
+import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Eye, EyeOff } from "lucide-react";
-
-// === TAMBAHAN: Import SDK Firebase ===
+import { Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase"; // <-- Sesuaikan dengan path file konfigurasi Firebase-mu
+import { auth, db } from "../config/firebase";
 
-export default function Login() {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState(""); // <-- Tambahan untuk menampung error UI
-  const [loading, setLoading] = useState(false); // <-- Tambahan untuk status loading tombol
+const LoginAdmin = () => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -21,11 +19,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1. Tembak API Firebase Auth untuk validasi Email & Password
+      // 1. Authenticate using Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // 2. Tembak API Firestore untuk cek dokumen di koleksi 'users' berdasarkan UID
+      // 2. Fetch user details from Firestore
       const userDocRef = doc(db, "users", uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -33,12 +31,10 @@ export default function Login() {
         const userData = userDocSnap.data();
         const role = userData.id_role || "";
 
-        // 3. Verifikasi Hak Akses (Admin harus memiliki id_role: '/roles/1')
+        // 3. Verify Admin access (id_role: '/roles/1')
         if (role === "/roles/1") {
-          // Login sukses, arahkan ke dashboard admin
           navigate("/dashboard");
         } else {
-          // Jika Pasien atau Perawat mencoba iseng login ke Web Admin, langsung didepak keluar
           await signOut(auth);
           setErrorMsg("Akses ditolak! Akun Anda bukan merupakan Admin.");
         }
@@ -48,7 +44,6 @@ export default function Login() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      // Menangani pesan error bawaan Firebase agar lebih enak dibaca manusia
       if (error.code === "auth/invalid-credential" || error.code === "auth/user-not-found") {
         setErrorMsg("Email atau Password yang Anda masukkan salah!");
       } else {
@@ -60,91 +55,106 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#F4F7FE]">
-      <div className="w-[450px] p-10 bg-white rounded-[20px] shadow-md">
-        {/* Logo / Ikon Admin */}
-        <div className="flex justify-center">
-          <div className="p-4 bg-[#214E8A]/10 rounded-full">
-            <ShieldCheck size={50} className="text-[#214E8A]" />
-          </div>
-        </div>
+    // Container utama: flexbox untuk membagi layar menjadi 2 bagian (kiri gambar, kanan form)
+    <div 
+      className="flex min-h-screen bg-[#F8F9FA]"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
+      
+      {/* BAGIAN KIRI - Ilustrasi (Sembunyikan di layar mobile) */}
+      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-[#F8F9FA]">
+        <img 
+          src="/ilustrasi.png" 
+          alt="Ilustrasi HomecareKu" 
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          style={{ imageRendering: 'auto' }}
+        />
+      </div>
 
-        {/* Judul */}
-        <h2 className="text-center text-[26px] font-bold text-[#2B3674] mt-5">
-          Login Admin
-        </h2>
-        <p className="text-center text-sm text-gray-400 mt-2">
-          Masukkan kredensial Anda untuk mengakses dashboard manajemen.
-        </p>
-
-        {/* === TAMBAHAN: Alert Error Box === */}
-        {errorMsg && (
-          <div className="mt-5 p-4 text-sm text-red-700 bg-red-50 rounded-xl text-center font-medium">
-            {errorMsg}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="mt-10 space-y-5">
-          {/* Input Email */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
-              Email / Username
-            </label>
-            <input
-              type="email"
-              placeholder="Email Address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-5 py-4 text-sm bg-[#F4F7FE] rounded-xl outline-none border-none focus:ring-2 focus:ring-[#214E8A]/20"
-              required
-              disabled={loading}
-            />
+      {/* BAGIAN KANAN - Form Login */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#F8F9FA]">
+        
+        {/* Card Form dengan custom drop shadow yang lembut */}
+        <div className="w-full max-w-[500px] bg-white rounded-[35px] p-10 flex flex-col items-center shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-50/50">
+          
+          {/* Logo HomecareKu */}
+          <div className="mb-4">
+            <img src="/logo.png" alt="HomecareKu" className="w-[60px] h-[60px] object-contain" />
           </div>
 
-          {/* Input Password */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
-              Password
-            </label>
-            <div className="relative">
+          {/* Heading */}
+          <h1 className="text-[#214E8A] text-[30px] font-bold text-center mb-1">
+            HomecareKu
+          </h1>
+          <p className="text-gray-500 text-[15px] text-center font-normal mb-8">
+            Masukkan kredensial Anda untuk melanjutkan
+          </p>
+
+          {/* Error Message Display */}
+          {errorMsg && (
+            <div className="w-full max-w-[350px] mb-5 p-4 text-sm text-red-700 bg-red-50 rounded-[10px] text-center font-medium border border-red-100">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleLogin} className="w-full max-w-[350px] flex flex-col gap-5">
+            
+            {/* Input Email */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[#000000] text-[15px] font-medium text-left">
+                Email
+              </label>
               <input
-                type={isPasswordVisible ? "text" : "password"}
-                placeholder="Enter Your Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-5 py-4 text-sm bg-[#F4F7FE] rounded-xl outline-none border-none focus:ring-2 focus:ring-[#214E8A]/20"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-[50px] border border-gray-300 rounded-[10px] px-4 focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A] transition-all"
                 required
                 disabled={loading}
               />
-              <button
-                type="button"
-                onClick={() => setIsPasswordVisible(!isPasswordVisible)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                disabled={loading}
-              >
-                {isPasswordVisible ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
-          </div>
 
-          {/* Lupa Password */}
-          <div className="text-right">
-            <button type="button" className="text-sm font-medium text-[#214E8A] hover:underline" disabled={loading}>
-              Lupa Password?
+            {/* Input Password */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[#000000] text-[15px] font-medium text-left">
+                Password
+              </label>
+              <div className="relative w-full h-[50px]">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-[50px] border border-gray-300 rounded-[10px] px-4 pr-12 focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A] transition-all"
+                  required
+                  disabled={loading}
+                />
+                {/* Tombol Toggle Mata */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0F1831] hover:text-gray-600 transition-colors"
+                  disabled={loading}
+                >
+                  {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Tombol Login */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-[50px] mt-4 bg-[#214E8A] text-white text-[15px] font-bold rounded-[10px] hover:bg-[#1a3d6e] transition-all active:scale-[0.98] disabled:bg-gray-400 disabled:scale-100 flex items-center justify-center"
+            >
+              {loading ? "Memproses..." : "Login"}
             </button>
-          </div>
-
-          {/* Tombol Login */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-[55px] bg-[#214E8A] text-white text-base font-semibold rounded-xl transition-all hover:bg-[#1a3e6d] active:scale-[0.98] disabled:bg-gray-400 disabled:scale-100 flex items-center justify-center"
-          >
-            {loading ? "Memproses..." : "Login"}
-          </button>
-        </form>
+            
+          </form>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default LoginAdmin;

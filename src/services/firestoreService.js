@@ -416,6 +416,22 @@ export async function getPatientById(id) {
     const querySnapshot = await getDocs(q);
     const totalTindakan = querySnapshot.size;
 
+    // Fetch patient's addresses from the 'alamat' collection
+    const qAlamat = query(
+      collection(db, "alamat"),
+      where("id_pasien", "==", id)
+    );
+    const alamatSnapshot = await getDocs(qAlamat);
+    const alamatList = [];
+    alamatSnapshot.forEach((doc) => {
+      const aData = doc.data();
+      let addr = `${aData.label}: ${aData.alamat_rumah}`;
+      if (aData.jalan) addr += `, ${aData.jalan}`;
+      if (aData.catatan) addr += ` (${aData.catatan})`;
+      alamatList.push(addr);
+    });
+    const alamatStr = alamatList.join("\n") || data.alamat || "";
+
     const avatarIdx = data.avatar_index !== undefined ? parseInt(data.avatar_index) : -1;
 
     return {
@@ -423,7 +439,7 @@ export async function getPatientById(id) {
       name: toTitleCase(data.nama || ""),
       email: data.email || "",
       phone: data.no_hp || "",
-      alamat: data.alamat || "",
+      alamat: alamatStr,
       jenisKelamin: data.jenis_kelamin || "",
       tanggalLahir: data.tanggal_lahir instanceof Timestamp 
         ? data.tanggal_lahir.toDate().toISOString().split('T')[0] 

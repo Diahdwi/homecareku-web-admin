@@ -154,12 +154,6 @@ export default function DetailPasien({ isOpen }) {
           {/* Data Fields */}
           <div className="space-y-6 mb-10 max-w-md">
             <div>
-              <p className="text-[#818807] font-bold text-sm mb-1">Jenis Kelamin</p>
-              <div className="text-black text-sm border-b border-gray-200 pb-1 font-medium">
-                {formData.jenisKelamin || "-"}
-              </div>
-            </div>
-            <div>
               <p className="text-[#818807] font-bold text-sm mb-1">Tanggal Lahir</p>
               <div className="text-black text-sm border-b border-gray-200 pb-1 font-medium">
                 {dobDay && dobMonth && dobYear 

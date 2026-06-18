@@ -222,6 +222,41 @@ export default function Notifikasi({ isOpen }) {
   const [selectedNurseId, setSelectedNurseId] = useState("");
   const [rejectId, setRejectId] = useState(null);
   const [alasan, setAlasan] = useState("");
+  const [allSchedules, setAllSchedules] = useState([]);
+
+  // Fetch all schedules from pesanan collection to check conflicts
+  useEffect(() => {
+    const q = collection(db, "pesanan");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllSchedules(docs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const isNurseBusy = (nurseId, order) => {
+    if (!order || !order.tanggal_booking) return false;
+    const orderDate = order.tanggal_booking.toDate ? order.tanggal_booking.toDate() : new Date(order.tanggal_booking);
+    const orderDateStr = orderDate.toDateString();
+    
+    const normalizeTime = (timeStr) => {
+      if (!timeStr) return "";
+      return timeStr.toString().replaceAll(".", ":").replaceAll(" WIB", "").trim();
+    };
+    
+    const orderJam = normalizeTime(order.jam_booking);
+    
+    return allSchedules.some(schedule => {
+      if (schedule.id_perawat !== nurseId) return false;
+      if (schedule.status === "Ditolak" || schedule.status_detail === "Ditolak" || schedule.status_detail === "Selesai") return false;
+      
+      const schedDate = schedule.tanggal_booking?.toDate ? schedule.tanggal_booking.toDate() : new Date(schedule.tanggal_booking);
+      const schedDateStr = schedDate.toDateString();
+      const schedJam = normalizeTime(schedule.jam_booking);
+      
+      return schedDateStr === orderDateStr && schedJam === orderJam;
+    });
+  };
 
   // Subscribe to real-time compiled notifications
   useEffect(() => {
@@ -602,11 +637,14 @@ export default function Notifikasi({ isOpen }) {
                         className="w-full h-11 border border-gray-200 rounded-xl px-4 text-sm outline-none focus:border-[#214E8A]"
                       >
                         <option value="">-- Pilih Perawat Bertugas --</option>
-                        {activeNurses.map((nurse) => (
-                          <option key={nurse.id} value={nurse.id}>
-                            {nurse.nama} (On Shift)
-                          </option>
-                        ))}
+                        {activeNurses.map((nurse) => {
+                          const busy = isNurseBusy(nurse.id, selectedNotif);
+                          return (
+                            <option key={nurse.id} value={nurse.id} disabled={busy}>
+                              {nurse.nama} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 

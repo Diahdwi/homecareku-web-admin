@@ -597,7 +597,7 @@ export function subscribeTransactions(onUpdate, onError) {
 
       list.push({
         id: bId,
-        id_pesanan: `#${bId.substring(0, 6).toUpperCase()}`,
+        id_pesanan: bData.id_pesanan || `#${bId.substring(0, 6).toUpperCase()}`,
         id_pasien: patientId,
         nama_pasien: patientName,
         img: patientImg,

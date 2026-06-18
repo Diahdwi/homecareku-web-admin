@@ -56,35 +56,38 @@ export default function Dashboard({ isOpen }) {
   // === STATE BARU: Untuk menyimpan perawat on_shift dan perawat yang dipilih admin ===
   const [activeNurses, setActiveNurses] = useState([]);
   const [selectedNurses, setSelectedNurses] = useState({}); // Menyimpan pilihan per tiap pesanan
-  const [todaySchedulesFromDb, setTodaySchedulesFromDb] = useState([]);
+  const [allSchedules, setAllSchedules] = useState([]);
 
-  // === EFFECT: Ambil Data Jadwal Tindakan Hari Ini langsung dari Pesanan ===
+  // === EFFECT: Ambil Data Jadwal Tindakan langsung dari Pesanan ===
   useEffect(() => {
     const q = collection(db, "pesanan");
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const todayStr = new Date().toDateString();
-      const filtered = docs.filter(doc => {
-        if (!doc.tanggal_booking) return false;
-        const d = doc.tanggal_booking.toDate ? doc.tanggal_booking.toDate() : new Date(doc.tanggal_booking);
-        return d.toDateString() === todayStr;
-      });
-
-      filtered.sort((a, b) => {
-        const jamA = (a.jam_booking || '').toString();
-        const jamB = (b.jam_booking || '').toString();
-        const cmp = jamA.localeCompare(jamB);
-        if (cmp !== 0) return cmp;
-        const tA = a.created_at?.seconds || 0;
-        const tB = b.created_at?.seconds || 0;
-        return tA - tB;
-      });
-
-      setTodaySchedulesFromDb(filtered);
+      setAllSchedules(docs);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const todaySchedulesFromDb = useMemo(() => {
+    const todayStr = new Date().toDateString();
+    const filtered = allSchedules.filter(doc => {
+      if (!doc.tanggal_booking) return false;
+      const d = doc.tanggal_booking.toDate ? doc.tanggal_booking.toDate() : new Date(doc.tanggal_booking);
+      return d.toDateString() === todayStr;
+    });
+
+    filtered.sort((a, b) => {
+      const jamA = (a.jam_booking || '').toString();
+      const jamB = (b.jam_booking || '').toString();
+      const cmp = jamA.localeCompare(jamB);
+      if (cmp !== 0) return cmp;
+      const tA = a.created_at?.seconds || 0;
+      const tB = b.created_at?.seconds || 0;
+      return tA - tB;
+    });
+    return filtered;
+  }, [allSchedules]);
 
   // === EFFECT: Ambil Data Perawat yang On Shift ===
   useEffect(() => {
@@ -393,13 +396,34 @@ export default function Dashboard({ isOpen }) {
       });
   }, [transactions, layananList]);
 
+  const isNurseBusy = (nurseId, order) => {
+    if (!order || !order.tanggal_booking) return false;
+    const orderDate = order.tanggal_booking.toDate ? order.tanggal_booking.toDate() : new Date(order.tanggal_booking);
+    const orderDateStr = orderDate.toDateString();
+    
+    const normalizeTime = (timeStr) => {
+      if (!timeStr) return "";
+      return timeStr.toString().replaceAll(".", ":").replaceAll(" WIB", "").trim();
+    };
+    
+    const orderJam = normalizeTime(order.jam_booking);
+    
+    return allSchedules.some(schedule => {
+      if (schedule.id_perawat !== nurseId) return false;
+      if (schedule.status === "Ditolak" || schedule.status_detail === "Ditolak" || schedule.status_detail === "Selesai") return false;
+      
+      const schedDate = schedule.tanggal_booking?.toDate ? schedule.tanggal_booking.toDate() : new Date(schedule.tanggal_booking);
+      const schedDateStr = schedDate.toDateString();
+      const schedJam = normalizeTime(schedule.jam_booking);
+      
+      return schedDateStr === orderDateStr && schedJam === orderJam;
+    });
+  };
+
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    if (value === undefined || value === null) return "Rp 0";
+    const formattedVal = Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `Rp ${formattedVal}`;
   };
 
   const getTodayDateFormatted = () => {
@@ -514,11 +538,14 @@ export default function Dashboard({ isOpen }) {
                             onChange={(e) => setSelectedNurses({...selectedNurses, [order.id_doc]: e.target.value})}
                           >
                             <option value="">-- Pilih Perawat Bertugas --</option>
-                            {activeNurses.map((nurse) => (
-                              <option key={nurse.id} value={nurse.id}>
-                                {toTitleCase(nurse.nama)} (On Shift)
-                              </option>
-                            ))}
+                            {activeNurses.map((nurse) => {
+                              const busy = isNurseBusy(nurse.id, order);
+                              return (
+                                <option key={nurse.id} value={nurse.id} disabled={busy}>
+                                  {toTitleCase(nurse.nama)} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                         {/* === END DROPDOWN === */}

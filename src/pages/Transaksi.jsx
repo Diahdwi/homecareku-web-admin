@@ -14,6 +14,7 @@ export default function Transaksi({ isOpen }) {
   const [filterMethod, setFilterMethod] = useState("Semua");
   const [filterService, setFilterService] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
+  const [sortBy, setSortBy] = useState("by_default");
 
   // State to view selected payment proof
   const [selectedBukti, setSelectedBukti] = useState(null);
@@ -58,6 +59,30 @@ export default function Transaksi({ isOpen }) {
 
   // Map database transactions to UI format
   const mappedTransactions = useMemo(() => {
+    // First, calculate patient-specific order numbers (P001, P002, ...)
+    const byPatient = {};
+    transactions.forEach((t) => {
+      const pid = t.id_pasien || "";
+      if (pid) {
+        if (!byPatient[pid]) byPatient[pid] = [];
+        byPatient[pid].push(t);
+      }
+    });
+
+    const orderNumbers = {};
+    Object.keys(byPatient).forEach((pid) => {
+      const pTxs = byPatient[pid];
+      // Sort by creation time ascending
+      pTxs.sort((a, b) => {
+        const timeA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || a.tanggal_booking || 0);
+        const timeB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || b.tanggal_booking || 0);
+        return timeA - timeB;
+      });
+      pTxs.forEach((t, index) => {
+        orderNumbers[t.id] = `P${String(index + 1).padStart(3, "0")}`;
+      });
+    });
+
     return transactions.map((t) => {
       let tgl = new Date();
       if (t.tanggal_booking) {
@@ -86,6 +111,7 @@ export default function Transaksi({ isOpen }) {
       return {
         id: t.id,
         id_pesanan: t.id_pesanan,
+        order_number: orderNumbers[t.id] || "P001",
         name: t.nama_pasien || "Pasien",
         date: dateStr,
         dateFormatted,
@@ -95,14 +121,15 @@ export default function Transaksi({ isOpen }) {
         price: price,
         service: t.layanan || "Layanan",
         img: t.img,
-        bukti_pembayaran: t.bukti_pembayaran
+        bukti_pembayaran: t.bukti_pembayaran,
+        created_at: t.created_at || t.tanggal_booking
       };
     });
   }, [transactions, layananList]);
 
-  // Filter logic
+  // Filter logic and sorting logic
   const filteredTransactions = useMemo(() => {
-    return mappedTransactions.filter((t) => {
+    let result = mappedTransactions.filter((t) => {
       // 1. Filter by Name
       if (filterName && !t.name.toLowerCase().includes(filterName.toLowerCase())) {
         return false;
@@ -115,8 +142,8 @@ export default function Transaksi({ isOpen }) {
       if (filterMethod !== "Semua" && t.method.toLowerCase() !== filterMethod.toLowerCase()) {
         return false;
       }
-      // 4. Filter by Service
-      if (filterService !== "Semua" && t.service !== filterService) {
+      // 4. Filter by Service (Case-insensitive check)
+      if (filterService !== "Semua" && t.service.toLowerCase() !== filterService.toLowerCase()) {
         return false;
       }
       // 5. Filter by Status
@@ -125,12 +152,39 @@ export default function Transaksi({ isOpen }) {
       }
       return true;
     });
-  }, [mappedTransactions, filterName, filterDate, filterMethod, filterService, filterStatus]);
 
-  // Reset page when filter changes
+    // Apply sorting
+    result.sort((a, b) => {
+      if (sortBy === "by_default") {
+        // completed transactions (status == "Lunas") go to the bottom
+        const isCompletedA = a.status === "Lunas";
+        const isCompletedB = b.status === "Lunas";
+        if (isCompletedA && !isCompletedB) return 1;
+        if (!isCompletedA && isCompletedB) return -1;
+
+        // otherwise sort by newest first (created_at descending)
+        const dateA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || 0);
+        const dateB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || 0);
+        return dateB - dateA;
+      } else if (sortBy === "antrean_asc") {
+        return a.id_pesanan.localeCompare(b.id_pesanan);
+      } else if (sortBy === "antrean_desc") {
+        return b.id_pesanan.localeCompare(a.id_pesanan);
+      } else if (sortBy === "pesanan_asc") {
+        return a.order_number.localeCompare(b.order_number);
+      } else if (sortBy === "pesanan_desc") {
+        return b.order_number.localeCompare(a.order_number);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [mappedTransactions, filterName, filterDate, filterMethod, filterService, filterStatus, sortBy]);
+
+  // Reset page when filter or sorting changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterName, filterDate, filterMethod, filterService, filterStatus]);
+  }, [filterName, filterDate, filterMethod, filterService, filterStatus, sortBy]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -146,17 +200,11 @@ export default function Transaksi({ isOpen }) {
       .reduce((sum, t) => sum + t.price, 0);
   }, [filteredTransactions]);
 
-  // Format currency helpers
+  // Format currency helpers (Indonesian Currency: Rp [angka] with dots, exactly one space)
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })
-      .format(value)
-      .replace(/\s+/g, " ")
-      .replace("IDR", "Rp");
+    if (value === undefined || value === null) return "Rp 0";
+    const formattedVal = Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `Rp ${formattedVal}`;
   };
 
   const handleResetFilters = () => {
@@ -165,6 +213,7 @@ export default function Transaksi({ isOpen }) {
     setFilterMethod("Semua");
     setFilterService("Semua");
     setFilterStatus("Semua");
+    setSortBy("by_default");
   };
 
   // Check if any filter is active
@@ -173,7 +222,8 @@ export default function Transaksi({ isOpen }) {
     filterDate !== "" || 
     filterMethod !== "Semua" || 
     filterService !== "Semua" || 
-    filterStatus !== "Semua";
+    filterStatus !== "Semua" ||
+    sortBy !== "by_default";
 
   // Helper for dynamic status color class
   const getStatusColorClass = (status) => {
@@ -313,11 +363,29 @@ export default function Transaksi({ isOpen }) {
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#214E8A] text-black bg-white"
                 >
                   <option value="Semua">Semua Layanan</option>
-                  <option value="Perawatan Luka">Perawatan Luka</option>
-                  <option value="Pasang Kateter">Pasang Kateter</option>
-                  <option value="Khitan Modern">Khitan Modern</option>
-                  <option value="Fisioterapi">Fisioterapi</option>
-                  <option value="Infus Rumah">Infus Rumah</option>
+                  {layananList.map((layanan) => (
+                    <option key={layanan.id} value={layanan.nama}>
+                      {layanan.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort By Filter */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                  Urutkan Berdasarkan
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#214E8A] text-black bg-white"
+                >
+                  <option value="by_default">by default</option>
+                  <option value="antrean_asc">nomor antrean (↑)</option>
+                  <option value="antrean_desc">nomor antrean (↓)</option>
+                  <option value="pesanan_asc">nomor pesanan (↑)</option>
+                  <option value="pesanan_desc">nomor pesanan (↓)</option>
                 </select>
               </div>
 
@@ -367,6 +435,12 @@ export default function Transaksi({ isOpen }) {
                   No
                 </th>
                 <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Nomor Pesanan
+                </th>
+                <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Nomor Antrean
+                </th>
+                <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
                   Nama
                 </th>
                 <th className="text-left pb-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -399,6 +473,16 @@ export default function Transaksi({ isOpen }) {
                     {/* No */}
                     <td className="py-4 pr-4 text-sm font-semibold text-[#1B2559]">
                       {startIndex + index + 1}
+                    </td>
+
+                    {/* Nomor Pesanan */}
+                    <td className="py-4 text-sm font-semibold text-[#214E8A]">
+                      {tx.order_number}
+                    </td>
+
+                    {/* Nomor Antrean */}
+                    <td className="py-4 text-sm font-semibold text-[#818807]">
+                      {tx.id_pesanan}
                     </td>
 
                     {/* Nama (with Avatar) */}

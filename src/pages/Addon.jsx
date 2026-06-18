@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import Header from "../components/Header";
-import { subscribeAddons, addAddon, updateAddon, deleteAddon } from "../services/firestoreService";
+import { subscribeAddons, addAddon, updateAddon } from "../services/firestoreService";
 
 export default function Addon({ isOpen }) {
   const [addons, setAddons] = useState([]);
@@ -36,14 +36,12 @@ export default function Addon({ isOpen }) {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Yakin ingin menghapus addon ini?")) return;
+  const handleToggleActive = async (item) => {
     try {
-      await deleteAddon(id);
-      alert("Addon berhasil dihapus");
+      await updateAddon(item.id, { ...item, is_active: !item.is_active });
     } catch (err) {
       console.error(err);
-      alert("Gagal menghapus addon");
+      alert("Gagal mengubah status addon");
     }
   };
 
@@ -122,13 +120,21 @@ export default function Addon({ isOpen }) {
                   <h2 className="font-bold text-xl text-[#2B3674] mb-2">{item.nama_addon}</h2>
                   <p className="text-lg font-semibold text-[#79B735]">{formatCurrency(item.harga_default)}</p>
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-4 items-center">
                   <button onClick={() => handleEdit(item)} className="flex-1 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 rounded-xl transition-colors font-medium">
                     <Edit size={16} /> Edit
                   </button>
-                  <button onClick={() => handleDelete(item.id)} className="flex-1 flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-xl transition-colors font-medium">
-                    <Trash2 size={16} /> Hapus
-                  </button>
+                  <div className="flex-1 flex items-center justify-between bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
+                    <span className={`text-sm font-semibold ${item.is_active ? 'text-green-600' : 'text-gray-500'}`}>
+                      {item.is_active ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                    <button 
+                      onClick={() => handleToggleActive(item)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${item.is_active ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

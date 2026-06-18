@@ -890,6 +890,7 @@ export function subscribeAddons(onUpdate, onError) {
         id: doc.id,
         nama_addon: data.nama_addon || "",
         harga_default: data.harga_default || 0,
+        is_active: data.is_active !== false,
       });
     });
     onUpdate(list);
@@ -905,6 +906,7 @@ export async function addAddon(addonData) {
     const docRef = await addDoc(collection(db, "add_on"), {
       nama_addon: addonData.nama_addon,
       harga_default: parseInt(addonData.harga_default) || 0,
+      is_active: true,
     });
     return docRef.id;
   } catch (error) {
@@ -917,10 +919,14 @@ export async function addAddon(addonData) {
 export async function updateAddon(id, addonData) {
   try {
     const docRef = doc(db, "add_on", id);
-    await updateDoc(docRef, {
+    const payload = {
       nama_addon: addonData.nama_addon,
       harga_default: parseInt(addonData.harga_default) || 0,
-    });
+    };
+    if (addonData.is_active !== undefined) {
+      payload.is_active = addonData.is_active;
+    }
+    await updateDoc(docRef, payload);
   } catch (error) {
     console.error("Error in updateAddon:", error);
     throw error;

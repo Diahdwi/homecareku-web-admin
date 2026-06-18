@@ -162,8 +162,28 @@ export default function DetailPasien({ isOpen }) {
             </div>
             <div>
               <p className="text-[#818807] font-bold text-sm mb-1">Alamat</p>
-              <div className="text-black text-sm border-b border-gray-200 pb-1 font-medium whitespace-pre-wrap">
-                {formData.alamat || "-"}
+              <div className="text-black text-sm border-b border-gray-200 pb-2 font-medium">
+                {formData.alamat ? (
+                  <ul className="list-decimal pl-5 space-y-1">
+                    {formData.alamat.split('\n').map((addr, idx) => {
+                      const splitIdx = addr.indexOf(':');
+                      if (splitIdx !== -1) {
+                        const label = addr.substring(0, splitIdx + 1);
+                        const rest = addr.substring(splitIdx + 1);
+                        return (
+                          <li key={idx} className="leading-relaxed">
+                            <strong>{label}</strong>{rest}
+                          </li>
+                        );
+                      }
+                      return (
+                        <li key={idx} className="leading-relaxed">{addr}</li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  "-"
+                )}
               </div>
             </div>
           </div>

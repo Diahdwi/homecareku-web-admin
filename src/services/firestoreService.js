@@ -606,7 +606,7 @@ export function subscribeTransactions(onUpdate, onError) {
           ? bookingTime.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })
           : "08:00",
         tanggal_booking: bookingTime,
-        tempat_layanan: "Rumah",
+        tempat_layanan: bData.tempat_layanan || "Rumah",
         alamat_detail: bData.alamat?.nama_jalan || "",
         catatan: bData.alamat?.catatan || "",
         status: uiStatus,

@@ -139,15 +139,17 @@ export default function Dashboard({ isOpen }) {
         const data = docSnapshot.data();
         let tglBooking = data.tanggal_booking;
         let jamBooking = data.jam_booking;
+        let tempatLayanan = data.tempat_layanan;
 
-        if (!tglBooking && data.id_pesanan) {
+        if ((!tglBooking || !tempatLayanan) && data.id_pesanan) {
           try {
             const pQuery = query(collection(db, "pesanan"), where("id_pesanan", "==", data.id_pesanan));
             const pRes = await getDocs(pQuery);
             if (!pRes.empty) {
               const pData = pRes.docs[0].data();
-              tglBooking = pData.tanggal_booking;
-              jamBooking = pData.jam_booking;
+              if (!tglBooking) tglBooking = pData.tanggal_booking;
+              if (!jamBooking) jamBooking = pData.jam_booking;
+              if (!tempatLayanan) tempatLayanan = pData.tempat_layanan;
             }
           } catch (error) {
             console.error("Gagal menarik detail waktu pesanan:", error);
@@ -161,6 +163,7 @@ export default function Dashboard({ isOpen }) {
           ...data,
           tanggal_booking: tglBooking, 
           jam_booking: jamBooking,     
+          tempat_layanan: tempatLayanan,
         };
       });
 

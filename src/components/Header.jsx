@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell, MessageSquare, Search, Camera } from "lucide-react";
 import ChatPopup from "./ChatPopup";
 import NotifPopup from "./NotifPopup";
+import EditKlinikModal from "./EditKlinikModal";
 import { auth, db } from "../config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
@@ -27,6 +28,7 @@ export default function Header() {
   const [adminUid, setAdminUid] = useState(null);
   const [adminData, setAdminData] = useState(null);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [showEditKlinik, setShowEditKlinik] = useState(false);
   const profileMenuRef = useRef(null);
 
   // Real-time unread chat count
@@ -337,11 +339,25 @@ export default function Header() {
                 >
                   Hapus Foto Profil
                 </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPhotoOptions(false);
+                    setShowEditKlinik(true);
+                  }}
+                  className="text-xs font-semibold text-white bg-[#214E8A] rounded-lg hover:bg-blue-800 block text-center py-2"
+                >
+                  Pengaturan Klinik
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+      
+      {/* Klinik Modal */}
+      <EditKlinikModal isOpen={showEditKlinik} onClose={() => setShowEditKlinik(false)} />
     </div>
   );
 }

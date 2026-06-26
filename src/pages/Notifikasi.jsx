@@ -258,6 +258,17 @@ export default function Notifikasi({ isOpen }) {
     });
   };
 
+  const isNurseLocationMismatch = (nurse, order) => {
+    if (!order || !nurse) return false;
+    const orderLoc = order.tempat_layanan || "Rumah";
+    const isNurseAtRumah = nurse.lokasi === true; 
+    
+    if (orderLoc === "Klinik") {
+      return isNurseAtRumah;
+    }
+    return !isNurseAtRumah;
+  };
+
   // Subscribe to real-time compiled notifications
   useEffect(() => {
     const unsubscribe = subscribeAdminNotifications((list) => {
@@ -268,7 +279,7 @@ export default function Notifikasi({ isOpen }) {
 
   // Subscribe to active on-shift nurses
   useEffect(() => {
-    const qNurses = query(collection(db, "users"), where("status", "==", "on_shift"));
+    const qNurses = query(collection(db, "users"), where("status", "in", ["on_shift", "Sedang Bertugas"]));
     const unsubscribeNurses = onSnapshot(qNurses, (snapshot) => {
       const nursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setActiveNurses(nursesData);
@@ -637,14 +648,16 @@ export default function Notifikasi({ isOpen }) {
                         className="w-full h-11 border border-gray-200 rounded-xl px-4 text-sm outline-none focus:border-[#214E8A]"
                       >
                         <option value="">-- Pilih Perawat Bertugas --</option>
-                        {activeNurses.map((nurse) => {
-                          const busy = isNurseBusy(nurse.id, selectedNotif);
-                          return (
-                            <option key={nurse.id} value={nurse.id} disabled={busy}>
-                              {nurse.nama} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
-                            </option>
-                          );
-                        })}
+                        {activeNurses
+                          .filter((nurse) => !isNurseLocationMismatch(nurse, selectedNotif))
+                          .map((nurse) => {
+                            const busy = isNurseBusy(nurse.id, selectedNotif);
+                            return (
+                              <option key={nurse.id} value={nurse.id} disabled={busy}>
+                                {nurse.nama} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
+                              </option>
+                            );
+                          })}
                       </select>
                     </div>
 

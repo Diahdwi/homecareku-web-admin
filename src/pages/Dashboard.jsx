@@ -91,7 +91,7 @@ export default function Dashboard({ isOpen }) {
 
   // === EFFECT: Ambil Data Perawat yang On Shift ===
   useEffect(() => {
-    const qNurses = query(collection(db, "users"), where("status", "==", "on_shift"));
+    const qNurses = query(collection(db, "users"), where("status", "in", ["on_shift", "Sedang Bertugas"]));
     const unsubscribeNurses = onSnapshot(qNurses, (snapshot) => {
       const nursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setActiveNurses(nursesData);
@@ -423,6 +423,17 @@ export default function Dashboard({ isOpen }) {
     });
   };
 
+  const isNurseLocationMismatch = (nurse, order) => {
+    if (!order || !nurse) return false;
+    const orderLoc = order.tempat_layanan || "Rumah";
+    const isNurseAtRumah = nurse.lokasi === true; 
+    
+    if (orderLoc === "Klinik") {
+      return isNurseAtRumah;
+    }
+    return !isNurseAtRumah;
+  };
+
   const formatCurrency = (value) => {
     if (value === undefined || value === null) return "Rp 0";
     const formattedVal = Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -525,7 +536,14 @@ export default function Dashboard({ isOpen }) {
                   >
                     <div className="flex items-start justify-between">
                       <div className="w-full pr-4">
-                        <p className="font-bold text-gray-800">{toTitleCase(order.nama)}</p>
+                        <p className="font-bold text-gray-800">
+                          {toTitleCase(order.nama)}{" "}
+                          {order.id_pesanan && (
+                            <span className="text-xs font-normal text-gray-400">
+                              ({order.id_pesanan.startsWith('#A') ? order.id_pesanan.replace('#A', 'P') : order.id_pesanan})
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {order.layanan?.nama_layanan || order.layanan} • {order.tempat_layanan || "Rumah"}
                         </p>
@@ -541,14 +559,16 @@ export default function Dashboard({ isOpen }) {
                             onChange={(e) => setSelectedNurses({...selectedNurses, [order.id_doc]: e.target.value})}
                           >
                             <option value="">-- Pilih Perawat Bertugas --</option>
-                            {activeNurses.map((nurse) => {
-                              const busy = isNurseBusy(nurse.id, order);
-                              return (
-                                <option key={nurse.id} value={nurse.id} disabled={busy}>
-                                  {toTitleCase(nurse.nama)} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
-                                </option>
-                              );
-                            })}
+                             {activeNurses
+                              .filter((nurse) => !isNurseLocationMismatch(nurse, order))
+                              .map((nurse) => {
+                                const busy = isNurseBusy(nurse.id, order);
+                                return (
+                                  <option key={nurse.id} value={nurse.id} disabled={busy}>
+                                    {toTitleCase(nurse.nama)} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
+                                  </option>
+                                );
+                              })}
                           </select>
                         </div>
                         {/* === END DROPDOWN === */}

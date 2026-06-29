@@ -58,6 +58,11 @@ export default function Dashboard({ isOpen }) {
   const [selectedNurses, setSelectedNurses] = useState({}); // Menyimpan pilihan per tiap pesanan
   const [allSchedules, setAllSchedules] = useState([]);
 
+  // === STATE FILTER BULAN DAN TAHUN ===
+  const [filterType, setFilterType] = useState("Per Minggu");
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
   // === EFFECT: Ambil Data Jadwal Tindakan langsung dari Pesanan ===
   useEffect(() => {
     const q = collection(db, "pesanan");
@@ -287,53 +292,111 @@ export default function Dashboard({ isOpen }) {
   };
 
   // === COMPUTE LOGIC MILIK TEMANMU ===
-  const weeklyRevenue = useMemo(() => {
-    const revenueByDay = [0, 0, 0, 0, 0, 0, 0];
-    const now = new Date();
-    const currentDay = now.getDay();
-    
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - currentDay);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    transactions.forEach((tx) => {
-      if (tx.status === "Lunas") {
-        let tgl = new Date();
-        if (tx.tanggal_booking) {
-          tgl = tx.tanggal_booking.toDate ? tx.tanggal_booking.toDate() : new Date(tx.tanggal_booking);
-        }
-
-        if (tgl >= startOfWeek && tgl <= endOfWeek) {
-          const dayIndex = tgl.getDay();
-          let price = tx.harga || 0;
-          if (!price) {
-            const matchingLayanan = layananList.find(
-              (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
-            );
-            if (matchingLayanan && matchingLayanan.harga) {
-              const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
-              if (!isNaN(parsed)) price = parsed;
-            }
-          }
-          if (!price) price = 100000;
-          revenueByDay[dayIndex] += price;
+  const revenueData = useMemo(() => {
+    const getTransactionPrice = (tx) => {
+      let price = tx.harga || 0;
+      if (!price && tx.layanan) {
+        const matchingLayanan = layananList.find(
+          (l) => l.nama.toLowerCase() === tx.layanan.toLowerCase()
+        );
+        if (matchingLayanan && matchingLayanan.harga) {
+          const parsed = parseInt(matchingLayanan.harga.toString().replace(/[^0-9]/g, ""), 10);
+          if (!isNaN(parsed)) price = parsed;
         }
       }
-    });
+      if (!price) price = 100000;
+      return price;
+    };
 
-    return revenueByDay;
-  }, [transactions, layananList]);
+    if (filterType === "Per Minggu") {
+      const revenueByDay = [0, 0, 0, 0, 0, 0, 0];
+      const now = new Date();
+      const currentDay = now.getDay();
+      
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - currentDay);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      transactions.forEach((tx) => {
+        if (tx.status === "Lunas") {
+          let tgl = new Date();
+          if (tx.tanggal_booking) {
+            tgl = tx.tanggal_booking.toDate ? tx.tanggal_booking.toDate() : new Date(tx.tanggal_booking);
+          }
+
+          if (tgl >= startOfWeek && tgl <= endOfWeek) {
+            const dayIndex = tgl.getDay();
+            revenueByDay[dayIndex] += getTransactionPrice(tx);
+          }
+        }
+      });
+
+      return {
+        labels: ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"],
+        data: revenueByDay,
+      };
+    } else if (filterType === "Per Bulan") {
+      const numDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      const revenueByDate = Array(numDays).fill(0);
+      const labels = Array.from({ length: numDays }, (_, i) => (i + 1).toString());
+
+      transactions.forEach((tx) => {
+        if (tx.status === "Lunas") {
+          let tgl = new Date();
+          if (tx.tanggal_booking) {
+            tgl = tx.tanggal_booking.toDate ? tx.tanggal_booking.toDate() : new Date(tx.tanggal_booking);
+          }
+
+          if (tgl.getMonth() === selectedMonth && tgl.getFullYear() === selectedYear) {
+            const dateIndex = tgl.getDate() - 1;
+            if (dateIndex >= 0 && dateIndex < numDays) {
+              revenueByDate[dateIndex] += getTransactionPrice(tx);
+            }
+          }
+        }
+      });
+
+      return {
+        labels,
+        data: revenueByDate,
+      };
+    } else if (filterType === "Per Tahun") {
+      const revenueByMonth = Array(12).fill(0);
+      const labels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+      transactions.forEach((tx) => {
+        if (tx.status === "Lunas") {
+          let tgl = new Date();
+          if (tx.tanggal_booking) {
+            tgl = tx.tanggal_booking.toDate ? tx.tanggal_booking.toDate() : new Date(tx.tanggal_booking);
+          }
+
+          if (tgl.getFullYear() === selectedYear) {
+            const monthIndex = tgl.getMonth();
+            revenueByMonth[monthIndex] += getTransactionPrice(tx);
+          }
+        }
+      });
+
+      return {
+        labels,
+        data: revenueByMonth,
+      };
+    }
+
+    return { labels: [], data: [] };
+  }, [filterType, selectedMonth, selectedYear, transactions, layananList]);
 
   const chartData = {
-    labels: ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"],
+    labels: revenueData.labels,
     datasets: [
       {
         label: "Pemasukan",
-        data: weeklyRevenue,
+        data: revenueData.data,
         backgroundColor: "#214E8A",
         borderRadius: 12,
       },
@@ -509,11 +572,54 @@ export default function Dashboard({ isOpen }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-5">
         <div className="bg-white rounded-3xl p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <h2 className="text-2xl font-bold text-[#1B2559]">Analisis Pemasukan</h2>
-            <span className="text-sm font-semibold text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-              Minggu Ini
-            </span>
+            <div className="flex flex-wrap gap-2 items-center">
+              {filterType === "Per Bulan" && (
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full bg-gray-50 focus:outline-none focus:border-[#214E8A] cursor-pointer"
+                >
+                  <option value={0}>Januari</option>
+                  <option value={1}>Februari</option>
+                  <option value={2}>Maret</option>
+                  <option value={3}>April</option>
+                  <option value={4}>Mei</option>
+                  <option value={5}>Juni</option>
+                  <option value={6}>Juli</option>
+                  <option value={7}>Agustus</option>
+                  <option value={8}>September</option>
+                  <option value={9}>Oktober</option>
+                  <option value={10}>November</option>
+                  <option value={11}>Desember</option>
+                </select>
+              )}
+
+              {(filterType === "Per Bulan" || filterType === "Per Tahun") && (
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full bg-gray-50 focus:outline-none focus:border-[#214E8A] cursor-pointer"
+                >
+                  {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full bg-gray-50 focus:outline-none focus:border-[#214E8A] cursor-pointer"
+              >
+                <option value="Per Minggu">Per Minggu</option>
+                <option value="Per Bulan">Per Bulan</option>
+                <option value="Per Tahun">Per Tahun</option>
+              </select>
+            </div>
           </div>
 
           <div className="h-[320px]">

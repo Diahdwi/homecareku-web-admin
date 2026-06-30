@@ -575,17 +575,21 @@ export function subscribeTransactions(onUpdate, onError) {
       // Map status
       const paymentStatus = payment?.status || "pending";
       let uiStatus = "Belum Bayar";
-      const lowerStatus = paymentStatus.toLowerCase();
-      if (lowerStatus === "selesai" || lowerStatus === "lunas") {
-        uiStatus = "Lunas";
-      } else if (lowerStatus === "batal" || lowerStatus === "tidak selesai") {
-        uiStatus = "Batal";
-      } else if (lowerStatus === "menunggu validasi" || lowerStatus === "selesai & menunggu validasi") {
-        uiStatus = "Menunggu Verifikasi";
-      } else if (lowerStatus === "pending") {
-        uiStatus = "Belum Bayar";
+      if (bData.status === "Dibatalkan") {
+        uiStatus = "Dibatalkan";
       } else {
-        uiStatus = paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1);
+        const lowerStatus = paymentStatus.toLowerCase();
+        if (lowerStatus === "selesai" || lowerStatus === "lunas") {
+          uiStatus = "Lunas";
+        } else if (lowerStatus === "batal" || lowerStatus === "tidak selesai") {
+          uiStatus = "Dibatalkan";
+        } else if (lowerStatus === "menunggu validasi" || lowerStatus === "selesai & menunggu validasi") {
+          uiStatus = "Menunggu Verifikasi";
+        } else if (lowerStatus === "pending") {
+          uiStatus = "Belum Bayar";
+        } else {
+          uiStatus = paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1);
+        }
       }
 
       // Map method

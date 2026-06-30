@@ -263,6 +263,7 @@ export default function Transaksi({ isOpen }) {
       case "Lunas":
         return "text-[#79B735] bg-[#79B735]/10 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
       case "Batal":
+      case "Dibatalkan":
         return "text-red-500 bg-red-50 px-2.5 py-1 rounded-full text-xs font-bold inline-block";
       case "Menunggu Verifikasi":
         return "text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full text-xs font-bold inline-block";

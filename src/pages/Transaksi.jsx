@@ -59,27 +59,50 @@ export default function Transaksi({ isOpen }) {
 
   // Map database transactions to UI format
   const mappedTransactions = useMemo(() => {
-    // First, calculate patient-specific order numbers (P001, P002, ...)
-    const byPatient = {};
-    transactions.forEach((t) => {
-      const pid = t.id_pasien || "";
-      if (pid) {
-        if (!byPatient[pid]) byPatient[pid] = [];
-        byPatient[pid].push(t);
-      }
+    // 1. Calculate global order numbers fallback (P001, P002, ...)
+    const sortedGlobal = [...transactions].sort((a, b) => {
+      const timeA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || a.tanggal_booking || 0);
+      const timeB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || b.tanggal_booking || 0);
+      return timeA - timeB;
+    });
+    const orderNumbers = {};
+    sortedGlobal.forEach((t, index) => {
+      orderNumbers[t.id] = `P${String(index + 1).padStart(3, "0")}`;
     });
 
-    const orderNumbers = {};
-    Object.keys(byPatient).forEach((pid) => {
-      const pTxs = byPatient[pid];
-      // Sort by creation time ascending
-      pTxs.sort((a, b) => {
-        const timeA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || a.tanggal_booking || 0);
-        const timeB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || b.tanggal_booking || 0);
+    // 2. Calculate daily queue numbers (A001, A002, ...)
+    const byDate = {};
+    transactions.forEach((t) => {
+      let tgl = new Date();
+      if (t.tanggal_booking) {
+        tgl = t.tanggal_booking.toDate ? t.tanggal_booking.toDate() : new Date(t.tanggal_booking);
+      }
+      const dateKey = tgl.toISOString().split('T')[0];
+      if (!byDate[dateKey]) byDate[dateKey] = [];
+      byDate[dateKey].push(t);
+    });
+
+    const dailyQueueNumbers = {};
+    const parseJamBooking = (jamStr) => {
+      if (!jamStr) return 0;
+      const parts = jamStr.split(':');
+      const hour = parseInt(parts[0], 10) || 0;
+      const minute = parseInt(parts[1], 10) || 0;
+      return hour * 60 + minute;
+    };
+
+    Object.keys(byDate).forEach((dateKey) => {
+      const dayTxs = byDate[dateKey];
+      dayTxs.sort((a, b) => {
+        const jamA = parseJamBooking(a.jam_booking);
+        const jamB = parseJamBooking(b.jam_booking);
+        if (jamA !== jamB) return jamA - jamB;
+        const timeA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || 0);
+        const timeB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || 0);
         return timeA - timeB;
       });
-      pTxs.forEach((t, index) => {
-        orderNumbers[t.id] = `P${String(index + 1).padStart(3, "0")}`;
+      dayTxs.forEach((t, index) => {
+        dailyQueueNumbers[t.id] = `A${String(index + 1).padStart(3, "0")}`;
       });
     });
 
@@ -93,7 +116,7 @@ export default function Transaksi({ isOpen }) {
 
       // Use transaction price if available, otherwise match service price
       let price = t.harga || 0;
-      if (!price) {
+      if (!price && t.layanan) {
         const matchingLayanan = layananList.find(
           (l) => l.nama.toLowerCase() === t.layanan.toLowerCase()
         );
@@ -108,10 +131,17 @@ export default function Transaksi({ isOpen }) {
         price = 100000; // Fallback default
       }
 
+      // Check order number from DB, fallback to generated global order number
+      let dbOrderNumber = t.id_pesanan || "";
+      if (dbOrderNumber.startsWith('#A')) {
+        dbOrderNumber = dbOrderNumber.replace('#A', 'P');
+      }
+      const finalOrderNumber = dbOrderNumber || orderNumbers[t.id] || "P001";
+
       return {
         id: t.id,
-        id_pesanan: t.id_pesanan,
-        order_number: orderNumbers[t.id] || "P001",
+        id_pesanan: finalOrderNumber, // ini nomor pesanan (P...)
+        queue_number: dailyQueueNumbers[t.id] || "A001", // ini nomor antrean (A...)
         name: t.nama_pasien || "Pasien",
         date: dateStr,
         dateFormatted,
@@ -161,19 +191,19 @@ export default function Transaksi({ isOpen }) {
       };
 
       if (sortBy === "antrean_asc") {
-        const comp = a.id_pesanan.localeCompare(b.id_pesanan);
+        const comp = a.queue_number.localeCompare(b.queue_number);
         if (comp !== 0) return comp;
         return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "antrean_desc") {
-        const comp = b.id_pesanan.localeCompare(a.id_pesanan);
+        const comp = b.queue_number.localeCompare(a.queue_number);
         if (comp !== 0) return comp;
         return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "pesanan_asc") {
-        const comp = a.order_number.localeCompare(b.order_number);
+        const comp = a.id_pesanan.localeCompare(b.id_pesanan);
         if (comp !== 0) return comp;
         return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "pesanan_desc") {
-        const comp = b.order_number.localeCompare(a.order_number);
+        const comp = b.id_pesanan.localeCompare(a.id_pesanan);
         if (comp !== 0) return comp;
         return getBookingDate(a) - getBookingDate(b);
       }
@@ -403,6 +433,7 @@ export default function Transaksi({ isOpen }) {
                   <option value="Semua">Semua Status</option>
                   <option value="Lunas">Lunas</option>
                   <option value="Batal">Batal</option>
+                  <option value="Dibatalkan">Dibatalkan</option>
                   <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
                   <option value="Belum Bayar">Belum Bayar</option>
                 </select>
@@ -478,12 +509,12 @@ export default function Transaksi({ isOpen }) {
 
                     {/* Nomor Pesanan */}
                     <td className="py-4 text-sm font-semibold text-[#214E8A]">
-                      {tx.order_number}
+                      {tx.id_pesanan}
                     </td>
 
                     {/* Nomor Antrean */}
                     <td className="py-4 text-sm font-semibold text-[#818807]">
-                      {tx.id_pesanan}
+                      {tx.queue_number}
                     </td>
 
                     {/* Nama (with Avatar) */}

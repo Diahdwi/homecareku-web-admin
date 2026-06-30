@@ -50,6 +50,8 @@ export default function Dashboard({ isOpen }) {
 
   // === STATE MILIKMU (Untuk Verifikasi) ===
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [cancelOrders, setCancelOrders] = useState([]); // State untuk pembatalan
+  const [activeTab, setActiveTab] = useState("verifikasi"); // Tab aktif: verifikasi atau pembatalan
   const [rejectId, setRejectId] = useState(null);
   const [alasan, setAlasan] = useState("");
   
@@ -237,6 +239,79 @@ export default function Dashboard({ isOpen }) {
     return () => unsubscribe();
   }, []);
 
+  // === EFFECT BARU: (Subscribe Antrean Pembatalan) ===
+  useEffect(() => {
+    const q = query(
+      collection(db, "bookings"),
+      where("status", "==", "Menunggu Validasi Pembatalan")
+    );
+
+    let isInitialLoad = true;
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const ordersPromises = snapshot.docs.map(async (docSnapshot) => {
+        const data = docSnapshot.data();
+        let tglBooking = data.tanggal_booking;
+        let jamBooking = data.jam_booking;
+        let tempatLayanan = data.tempat_layanan;
+
+        if ((!tglBooking || !tempatLayanan) && data.id_pesanan) {
+          try {
+            const pQuery = query(collection(db, "pesanan"), where("id_pesanan", "==", data.id_pesanan));
+            const pRes = await getDocs(pQuery);
+            if (!pRes.empty) {
+              const pData = pRes.docs[0].data();
+              if (!tglBooking) tglBooking = pData.tanggal_booking;
+              if (!jamBooking) jamBooking = pData.jam_booking;
+              if (!tempatLayanan) tempatLayanan = pData.tempat_layanan;
+            }
+          } catch (error) {
+            console.error("Gagal menarik detail waktu pesanan:", error);
+          }
+        }
+
+        return {
+          id_doc: docSnapshot.id,
+          id_pesanan: data.id_pesanan, 
+          nama: toTitleCase(data.pasien?.nama || "Tanpa Nama"),
+          ...data,
+          tanggal_booking: tglBooking, 
+          jam_booking: jamBooking,     
+          tempat_layanan: tempatLayanan,
+        };
+      });
+
+      const resolvedOrders = await Promise.all(ordersPromises);
+      
+      // Jika ada permohonan pembatalan baru yang masuk setelah load pertama
+      if (!isInitialLoad && snapshot.docChanges().some(change => change.type === "added")) {
+        try {
+          // Play audio notification
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Nada A5
+          gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.3); // Bunyi selama 300ms
+        } catch (e) {
+          console.log("Audio alert blocked by browser autoplay policy");
+        }
+        
+        // Ganti tab aktif secara otomatis ke tab pembatalan agar langsung terlihat
+        setActiveTab("pembatalan");
+      }
+
+      isInitialLoad = false;
+      setCancelOrders(resolvedOrders);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // === FUNGSI VERIFIKASI MILIKMU (Diperbarui dengan Pemilihan Perawat) ===
   const handleVerifikasi = async (id_doc, id_pesanan) => {
     // 1. Cek apakah admin sudah memilih perawat
@@ -347,6 +422,84 @@ export default function Dashboard({ isOpen }) {
       setAlasan("");
       alert("Pesanan ditolak");
     } catch (e) { alert("Gagal: " + e.message); }
+  };
+
+  const handleSetujuiPembatalan = async (id_doc, id_pesanan) => {
+    if (!window.confirm("Apakah Anda yakin ingin menyetujui pembatalan pesanan ini?")) return;
+    const order = cancelOrders.find(o => o.id_doc === id_doc);
+    try {
+      // 1. Update bookings
+      await updateDoc(doc(db, "bookings", id_doc), { status: "Dibatalkan" });
+      
+      // 2. Update pesanan
+      if (id_pesanan) {
+        const q = query(collection(db, "pesanan"), where("id_pesanan", "==", id_pesanan));
+        const res = await getDocs(q);
+        res.forEach(async (d) => await updateDoc(doc(db, "pesanan", d.id), { 
+            status: "Dibatalkan", 
+            status_detail: "Dibatalkan" 
+        }));
+      }
+
+      // 3. Kirim push notification ke pasien
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      if (order) {
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: order.pasien?.id_pasien,
+            statusDetail: "Dibatalkan",
+            bookingId: order.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif pembatalan ke pasien:", err));
+      }
+
+      alert("Pembatalan pesanan disetujui!");
+    } catch (e) {
+      alert("Gagal: " + e.message);
+    }
+  };
+
+  const handleTolakPembatalan = async (id_doc, id_pesanan) => {
+    if (!window.confirm("Apakah Anda yakin ingin menolak permohonan pembatalan pesanan ini?")) return;
+    const order = cancelOrders.find(o => o.id_doc === id_doc);
+    try {
+      // Kembalikan ke Terjadwal
+      await updateDoc(doc(db, "bookings", id_doc), { status: "Terjadwal" });
+      
+      if (id_pesanan) {
+        const q = query(collection(db, "pesanan"), where("id_pesanan", "==", id_pesanan));
+        const res = await getDocs(q);
+        res.forEach(async (d) => await updateDoc(doc(db, "pesanan", d.id), { 
+            status: "Terjadwal", 
+            status_detail: "Menunggu Kedatangan" 
+        }));
+      }
+
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      if (order) {
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: order.pasien?.id_pasien,
+            statusDetail: "Menunggu Kedatangan",
+            bookingId: order.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif ke pasien:", err));
+      }
+
+      alert("Permohonan pembatalan ditolak. Pesanan dilanjutkan!");
+    } catch (e) {
+      alert("Gagal: " + e.message);
+    }
   };
 
   // === COMPUTE LOGIC MILIK TEMANMU ===
@@ -690,94 +843,162 @@ export default function Dashboard({ isOpen }) {
         <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-4 text-[#1B2559]">
-              Verifikasi Pesanan Pasien
+              Verifikasi & Validasi
             </h2>
 
+            {/* TAB SELECTOR */}
+            <div className="flex gap-4 border-b border-gray-100 pb-3 mb-4">
+              <button 
+                onClick={() => setActiveTab("verifikasi")}
+                className={`text-sm font-bold pb-1 transition-all ${activeTab === "verifikasi" ? "text-[#214E8A] border-b-2 border-[#214E8A]" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Verifikasi Pesanan ({pendingOrders.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab("pembatalan")}
+                className={`text-sm font-bold pb-1 transition-all ${activeTab === "pembatalan" ? "text-red-500 border-b-2 border-red-500" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Validasi Pembatalan ({cancelOrders.length})
+              </button>
+            </div>
+
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-              {pendingOrders.length > 0 ? (
-                pendingOrders.map((order) => (
-                  <div
-                    key={order.id_doc}
-                    className="p-4 rounded-2xl bg-gray-50 flex flex-col gap-3 border border-gray-100"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="w-full pr-4">
-                        <p className="font-bold text-gray-800">
-                          {toTitleCase(order.nama)}{" "}
-                          {order.id_pesanan && (
-                            <span className="text-xs font-normal text-gray-400">
-                              ({order.id_pesanan.startsWith('#A') ? order.id_pesanan.replace('#A', 'P') : order.id_pesanan})
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {order.layanan?.nama_layanan || order.layanan} • {order.tempat_layanan || "Rumah"}
-                        </p>
-                        <p className="text-xs font-semibold text-[#214E8A] mt-1">
-                          {formatBookingDate(order.tanggal_booking)} | {order.jam_booking || "-"}
-                        </p>
-                        
-                        {/* === DROPDOWN PILIH PERAWAT === */}
-                        <div className="mt-3 w-full">
-                          <select 
-                            className="border border-gray-200 p-2 w-full text-xs rounded-xl focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A] bg-white cursor-pointer"
-                            value={selectedNurses[order.id_doc] || ""}
-                            onChange={(e) => setSelectedNurses({...selectedNurses, [order.id_doc]: e.target.value})}
-                          >
-                            <option value="">-- Pilih Perawat Bertugas --</option>
-                             {activeNurses
-                              .filter((nurse) => !isNurseLocationMismatch(nurse, order))
-                              .map((nurse) => {
-                                const busy = isNurseBusy(nurse.id, order);
-                                return (
-                                  <option key={nurse.id} value={nurse.id} disabled={busy}>
-                                    {toTitleCase(nurse.nama)} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
-                                  </option>
-                                );
-                              })}
-                          </select>
+              {activeTab === "verifikasi" ? (
+                pendingOrders.length > 0 ? (
+                  pendingOrders.map((order) => (
+                    <div
+                      key={order.id_doc}
+                      className="p-4 rounded-2xl bg-gray-50 flex flex-col gap-3 border border-gray-100"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-full pr-4">
+                          <p className="font-bold text-gray-800">
+                            {toTitleCase(order.nama)}{" "}
+                            {order.id_pesanan && (
+                              <span className="text-xs font-normal text-gray-400">
+                                ({order.id_pesanan.startsWith('#A') ? order.id_pesanan.replace('#A', 'P') : order.id_pesanan})
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {order.layanan?.nama_layanan || order.layanan} • {order.tempat_layanan || "Rumah"}
+                          </p>
+                          <p className="text-xs font-semibold text-[#214E8A] mt-1">
+                            {formatBookingDate(order.tanggal_booking)} | {order.jam_booking || "-"}
+                          </p>
+                          
+                          {/* === DROPDOWN PILIH PERAWAT === */}
+                          <div className="mt-3 w-full">
+                            <select 
+                              className="border border-gray-200 p-2 w-full text-xs rounded-xl focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A] bg-white cursor-pointer"
+                              value={selectedNurses[order.id_doc] || ""}
+                              onChange={(e) => setSelectedNurses({...selectedNurses, [order.id_doc]: e.target.value})}
+                            >
+                              <option value="">-- Pilih Perawat Bertugas --</option>
+                               {activeNurses
+                                .filter((nurse) => !isNurseLocationMismatch(nurse, order))
+                                .map((nurse) => {
+                                  const busy = isNurseBusy(nurse.id, order);
+                                  return (
+                                    <option key={nurse.id} value={nurse.id} disabled={busy}>
+                                      {toTitleCase(nurse.nama)} (On Shift) {busy ? "- SIBUK DI JAM INI" : ""}
+                                    </option>
+                                  );
+                                })}
+                            </select>
+                          </div>
+                          {/* === END DROPDOWN === */}
                         </div>
-                        {/* === END DROPDOWN === */}
+                        
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => handleVerifikasi(order.id_doc, order.id_pesanan)}
+                            className="flex items-center justify-center gap-1.5 bg-[#818807] hover:bg-[#818807]/90 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
+                          >
+                            <CheckCircle size={14} />
+                            <span className="hidden sm:inline">Terima</span>
+                          </button>
+                          <button
+                            onClick={() => setRejectId(order.id_doc)}
+                            className="flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
+                          >
+                            <X size={14} />
+                            <span className="hidden sm:inline">Tolak</span>
+                          </button>
+                        </div>
                       </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => handleVerifikasi(order.id_doc, order.id_pesanan)}
-                          className="flex items-center justify-center gap-1.5 bg-[#818807] hover:bg-[#818807]/90 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
-                        >
-                          <CheckCircle size={14} />
-                          <span className="hidden sm:inline">Terima</span>
-                        </button>
-                        <button
-                          onClick={() => setRejectId(order.id_doc)}
-                          className="flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
-                        >
-                          <X size={14} />
-                          <span className="hidden sm:inline">Tolak</span>
-                        </button>
+                      {rejectId === order.id_doc && (
+                        <div className="flex gap-2 w-full mt-1 border-t border-gray-200 pt-3">
+                          <input
+                            className="border border-gray-200 p-2 w-full text-xs rounded-xl focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A]"
+                            placeholder="Masukkan alasan penolakan..."
+                            onChange={(e) => setAlasan(e.target.value)}
+                          />
+                          <button
+                            onClick={() => handleTolak(order.id_doc, order.id_pesanan)}
+                            className="bg-[#214E8A] hover:bg-[#1B2559] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
+                          >
+                            Kirim
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm text-center py-8">
+                    Tidak ada antrean verifikasi.
+                  </p>
+                )
+              ) : (
+                /* TAB VALIDASI PEMBATALAN */
+                cancelOrders.length > 0 ? (
+                  cancelOrders.map((order) => (
+                    <div
+                      key={order.id_doc}
+                      className="p-4 rounded-2xl bg-gray-50 flex flex-col gap-3 border border-gray-100"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-full pr-4">
+                          <p className="font-bold text-gray-800">
+                            {toTitleCase(order.nama)}{" "}
+                            {order.id_pesanan && (
+                              <span className="text-xs font-normal text-gray-400">
+                                ({order.id_pesanan.startsWith('#A') ? order.id_pesanan.replace('#A', 'P') : order.id_pesanan})
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {order.layanan?.nama_layanan || order.layanan} • {order.tempat_layanan || "Rumah"}
+                          </p>
+                          <p className="text-xs font-semibold text-red-500 mt-1">
+                            {formatBookingDate(order.tanggal_booking)} | {order.jam_booking || "-"}
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => handleSetujuiPembatalan(order.id_doc, order.id_pesanan)}
+                            className="flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
+                          >
+                            <CheckCircle size={14} />
+                            <span className="hidden sm:inline">Setujui</span>
+                          </button>
+                          <button
+                            onClick={() => handleTolakPembatalan(order.id_doc, order.id_pesanan)}
+                            className="flex items-center justify-center gap-1.5 bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm"
+                          >
+                            <X size={14} />
+                            <span className="hidden sm:inline">Tolak</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    {rejectId === order.id_doc && (
-                      <div className="flex gap-2 w-full mt-1 border-t border-gray-200 pt-3">
-                        <input
-                          className="border border-gray-200 p-2 w-full text-xs rounded-xl focus:outline-none focus:border-[#214E8A] focus:ring-1 focus:ring-[#214E8A]"
-                          placeholder="Masukkan alasan penolakan..."
-                          onChange={(e) => setAlasan(e.target.value)}
-                        />
-                        <button
-                          onClick={() => handleTolak(order.id_doc, order.id_pesanan)}
-                          className="bg-[#214E8A] hover:bg-[#1B2559] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
-                        >
-                          Kirim
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-sm text-center py-8">
-                  Tidak ada antrean verifikasi.
-                </p>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm text-center py-8">
+                    Tidak ada permohonan pembatalan.
+                  </p>
+                )
               )}
             </div>
           </div>

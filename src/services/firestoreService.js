@@ -563,11 +563,14 @@ export function subscribeTransactions(onUpdate, onError) {
       // Get patient name and avatar details
       const patientId = bData.pasien?.id_pasien || "";
       const patientData = userCache[patientId] || {};
-      const patientName = patientData.name || "Pasien";
+      const patientName = patientData.name || bData.pasien?.nama || "Pasien";
       const avatarIdx = patientData.avatarIndex !== undefined ? patientData.avatarIndex : -1;
-      const patientImg = patientData.photoBase64
-        ? `data:image/jpeg;base64,${patientData.photoBase64}`
-        : defaultAvatarPlaceholder;
+      let patientImg = defaultAvatarPlaceholder;
+      if (patientData.photoBase64) {
+        patientImg = `data:image/jpeg;base64,${patientData.photoBase64}`;
+      } else if (avatarIdx >= 0 && avatarIdx < avatars.length) {
+        patientImg = avatars[avatarIdx];
+      }
 
       // Map status
       const paymentStatus = payment?.status || "pending";
@@ -592,8 +595,29 @@ export function subscribeTransactions(onUpdate, onError) {
         uiMethod = "Qris";
       }
 
-      // Timestamp
-      const bookingTime = bData.alamat?.created_at || payment?.tanggal_bayar;
+      // Waktu dan Tanggal Booking yang valid dari DB
+      const bookingTime = bData.tanggal_booking || bData.created_at || payment?.tanggal_bayar;
+      const jamBookingVal = bData.jam_booking || (bookingTime instanceof Timestamp
+        ? bookingTime.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })
+        : "08:00");
+
+      // Layanan dari string / object
+      let layananName = "Layanan";
+      if (bData.layanan) {
+        if (typeof bData.layanan === "object") {
+          layananName = bData.layanan.nama_layanan || bData.layanan.nama || "Layanan";
+        } else {
+          layananName = bData.layanan;
+        }
+      }
+
+      // Status
+      let statusDetailVal = "Menunggu Verifikasi";
+      if (bData.status_detail) {
+        statusDetailVal = bData.status_detail;
+      } else if (bData.status) {
+        statusDetailVal = bData.status;
+      }
 
       list.push({
         id: bId,
@@ -601,20 +625,18 @@ export function subscribeTransactions(onUpdate, onError) {
         id_pasien: patientId,
         nama_pasien: patientName,
         img: patientImg,
-        layanan: bData.layanan?.nama_layanan || "Layanan",
-        jam_booking: bookingTime instanceof Timestamp
-          ? bookingTime.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })
-          : "08:00",
+        layanan: layananName,
+        jam_booking: jamBookingVal,
         tanggal_booking: bookingTime,
         tempat_layanan: bData.tempat_layanan || "Rumah",
-        alamat_detail: bData.alamat?.nama_jalan || "",
-        catatan: bData.alamat?.catatan || "",
+        alamat_detail: bData.alamat_detail || (bData.alamat?.nama_jalan || ""),
+        catatan: bData.catatan || (bData.alamat?.catatan || ""),
         status: uiStatus,
-        status_detail: paymentStatus === "selesai" ? "Selesai" : paymentStatus === "menunggu validasi" || paymentStatus === "Selesai & Menunggu Validasi" ? "Selesai & Menunggu Validasi" : "Menunggu Validasi",
+        status_detail: statusDetailVal,
         metode_pembayaran: uiMethod,
-        harga: payment?.total_bayar || 0,
-        bukti_pembayaran: payment?.bukti_pembayaran || null,
-        created_at: bookingTime
+        harga: bData.total_harga || payment?.total_bayar || 0,
+        bukti_pembayaran: payment?.bukti_pembayaran || bData.bukti_pembayaran || null,
+        created_at: bData.created_at || bookingTime
       });
     });
 
@@ -731,6 +753,20 @@ export function subscribeAdminNotifications(onUpdate, onError) {
           layanan: layananName,
           id_pesanan: bData.id_pesanan || `#${bId.substring(0, 6).toUpperCase()}`,
           actionType: "booking_confirm",
+        });
+      } else if (bData.status === "Menunggu Validasi Pembatalan") {
+        notificationsList.push({
+          id: `cancel_${bId}`,
+          bookingId: bId,
+          type: "cancellation",
+          judul: "Pengajuan Pembatalan",
+          pesan: `${patientName} mengajukan pembatalan untuk pesanan ${bData.id_pesanan || bId}.`,
+          waktu: bData.created_at ? bData.created_at.toDate() : new Date(),
+          is_read: false,
+          pasien: patientName,
+          layanan: layananName,
+          id_pesanan: bData.id_pesanan || `#${bId.substring(0, 6).toUpperCase()}`,
+          actionType: "cancellation_verify",
         });
       }
     });

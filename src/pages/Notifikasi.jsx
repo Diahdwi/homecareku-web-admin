@@ -21,7 +21,7 @@ import {
   verifyPayment 
 } from "../services/firestoreService";
 import { db } from "../config/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, getDoc } from "firebase/firestore";
 
 
 // ─── TIME FORMATTER ────────────────────────────────
@@ -69,6 +69,8 @@ function getNotifIcon(type, size = 20) {
       return <UserPlus size={size} className="text-green-600" />;
     case "verifikasi":
       return <CheckCircle size={size} className="text-orange-500" />;
+    case "cancellation":
+      return <X size={size} className="text-red-500" />;
     default:
       return <Bell size={size} className="text-[#214E8A]" />;
   }
@@ -84,6 +86,8 @@ function getNotifIconBg(type) {
       return "bg-green-50";
     case "verifikasi":
       return "bg-orange-50";
+    case "cancellation":
+      return "bg-red-50";
     default:
       return "bg-gray-100";
   }
@@ -99,6 +103,8 @@ function getNotifLabel(type) {
       return { text: "Perawat Baru", color: "bg-green-100 text-green-700" };
     case "verifikasi":
       return { text: "Verifikasi", color: "bg-orange-100 text-orange-700" };
+    case "cancellation":
+      return { text: "Pembatalan", color: "bg-red-100 text-red-700" };
     default:
       return { text: "Info", color: "bg-gray-100 text-gray-600" };
   }
@@ -376,6 +382,90 @@ export default function Notifikasi({ isOpen }) {
       alert("Pembayaran berhasil diverifikasi!");
     } catch (e) {
       alert("Gagal memverifikasi pembayaran: " + e.message);
+    }
+  };
+
+  const handleSetujuiPembatalan = async (notif) => {
+    if (!window.confirm("Apakah Anda yakin ingin menyetujui pembatalan pesanan ini?")) return;
+    try {
+      // 1. Update bookings
+      await updateDoc(doc(db, "bookings", notif.bookingId), { status: "Dibatalkan" });
+      
+      // 2. Update pesanan
+      if (notif.id_pesanan) {
+        const q = query(collection(db, "pesanan"), where("id_pesanan", "==", notif.id_pesanan));
+        const res = await getDocs(q);
+        res.forEach(async (d) => await updateDoc(doc(db, "pesanan", d.id), { 
+            status: "Dibatalkan", 
+            status_detail: "Dibatalkan" 
+        }));
+      }
+
+      // 3. Kirim push notification ke pasien
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      const bookingSnap = await getDoc(doc(db, "bookings", notif.bookingId));
+      if (bookingSnap.exists()) {
+        const bData = bookingSnap.data();
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: bData.pasien?.id_pasien,
+            statusDetail: "Dibatalkan",
+            bookingId: notif.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif pembatalan ke pasien:", err));
+      }
+
+      markAsRead(notif.id);
+      setSelectedNotif(null);
+      alert("Pembatalan pesanan disetujui!");
+    } catch (e) {
+      alert("Gagal: " + e.message);
+    }
+  };
+
+  const handleTolakPembatalan = async (notif) => {
+    if (!window.confirm("Apakah Anda yakin ingin menolak permohonan pembatalan pesanan ini?")) return;
+    try {
+      // Kembalikan ke Terjadwal
+      await updateDoc(doc(db, "bookings", notif.bookingId), { status: "Terjadwal" });
+      
+      if (notif.id_pesanan) {
+        const q = query(collection(db, "pesanan"), where("id_pesanan", "==", notif.id_pesanan));
+        const res = await getDocs(q);
+        res.forEach(async (d) => await updateDoc(doc(db, "pesanan", d.id), { 
+            status: "Terjadwal", 
+            status_detail: "Menunggu Kedatangan" 
+        }));
+      }
+
+      const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://pbl-homecareku-backend.vercel.app";
+
+      const bookingSnap = await getDoc(doc(db, "bookings", notif.bookingId));
+      if (bookingSnap.exists()) {
+        const bData = bookingSnap.data();
+        fetch(`${backendUrl}/api/pesanan/send-status-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patientId: bData.pasien?.id_pasien,
+            statusDetail: "Menunggu Kedatangan",
+            bookingId: notif.id_pesanan
+          })
+        }).catch(err => console.error("Gagal kirim notif ke pasien:", err));
+      }
+
+      markAsRead(notif.id);
+      setSelectedNotif(null);
+      alert("Permohonan pembatalan ditolak. Pesanan dilanjutkan!");
+    } catch (e) {
+      alert("Gagal: " + e.message);
     }
   };
 
@@ -755,6 +845,47 @@ export default function Notifikasi({ isOpen }) {
                     >
                       <ExternalLink size={16} />
                       Lihat Transaksi
+                    </button>
+                  </div>
+                )}
+
+                {selectedNotif.actionType === "cancellation_verify" && (
+                  <div className="mt-6 flex items-center gap-3">
+                    <button
+                      onClick={() => handleSetujuiPembatalan(selectedNotif)}
+                      className="
+                        flex-1
+                        py-3
+                        rounded-xl
+                        bg-red-500
+                        hover:bg-red-600
+                        text-white
+                        font-semibold text-sm
+                        flex items-center justify-center gap-2
+                        transition-colors
+                        shadow-md shadow-red-500/20
+                      "
+                    >
+                      <Check size={18} />
+                      Setujui Pembatalan
+                    </button>
+                    <button
+                      onClick={() => handleTolakPembatalan(selectedNotif)}
+                      className="
+                        flex-1
+                        py-3
+                        rounded-xl
+                        bg-white
+                        border-2 border-gray-300
+                        text-gray-600
+                        hover:bg-gray-50
+                        font-semibold text-sm
+                        flex items-center justify-center gap-2
+                        transition-colors
+                      "
+                    >
+                      <X size={18} />
+                      Tolak Pembatalan
                     </button>
                   </div>
                 )}

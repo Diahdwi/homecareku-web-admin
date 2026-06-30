@@ -14,7 +14,7 @@ export default function Transaksi({ isOpen }) {
   const [filterMethod, setFilterMethod] = useState("Semua");
   const [filterService, setFilterService] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Semua");
-  const [sortBy, setSortBy] = useState("by_default");
+  const [sortBy, setSortBy] = useState("antrean_asc");
 
   // State to view selected payment proof
   const [selectedBukti, setSelectedBukti] = useState(null);
@@ -155,25 +155,27 @@ export default function Transaksi({ isOpen }) {
 
     // Apply sorting
     result.sort((a, b) => {
-      if (sortBy === "by_default") {
-        // completed transactions (status == "Lunas") go to the bottom
-        const isCompletedA = a.status === "Lunas";
-        const isCompletedB = b.status === "Lunas";
-        if (isCompletedA && !isCompletedB) return 1;
-        if (!isCompletedA && isCompletedB) return -1;
+      const getBookingDate = (tx) => {
+        if (!tx.created_at) return new Date(0);
+        return tx.created_at.toDate ? tx.created_at.toDate() : new Date(tx.created_at);
+      };
 
-        // otherwise sort by newest first (created_at descending)
-        const dateA = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || 0);
-        const dateB = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || 0);
-        return dateB - dateA;
-      } else if (sortBy === "antrean_asc") {
-        return a.id_pesanan.localeCompare(b.id_pesanan);
+      if (sortBy === "antrean_asc") {
+        const comp = a.id_pesanan.localeCompare(b.id_pesanan);
+        if (comp !== 0) return comp;
+        return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "antrean_desc") {
-        return b.id_pesanan.localeCompare(a.id_pesanan);
+        const comp = b.id_pesanan.localeCompare(a.id_pesanan);
+        if (comp !== 0) return comp;
+        return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "pesanan_asc") {
-        return a.order_number.localeCompare(b.order_number);
+        const comp = a.order_number.localeCompare(b.order_number);
+        if (comp !== 0) return comp;
+        return getBookingDate(a) - getBookingDate(b);
       } else if (sortBy === "pesanan_desc") {
-        return b.order_number.localeCompare(a.order_number);
+        const comp = b.order_number.localeCompare(a.order_number);
+        if (comp !== 0) return comp;
+        return getBookingDate(a) - getBookingDate(b);
       }
       return 0;
     });
@@ -213,7 +215,7 @@ export default function Transaksi({ isOpen }) {
     setFilterMethod("Semua");
     setFilterService("Semua");
     setFilterStatus("Semua");
-    setSortBy("by_default");
+    setSortBy("antrean_asc");
   };
 
   // Check if any filter is active
@@ -223,7 +225,7 @@ export default function Transaksi({ isOpen }) {
     filterMethod !== "Semua" || 
     filterService !== "Semua" || 
     filterStatus !== "Semua" ||
-    sortBy !== "by_default";
+    sortBy !== "antrean_asc";
 
   // Helper for dynamic status color class
   const getStatusColorClass = (status) => {
@@ -381,7 +383,6 @@ export default function Transaksi({ isOpen }) {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#214E8A] text-black bg-white"
                 >
-                  <option value="by_default">by default</option>
                   <option value="antrean_asc">nomor antrean (↑)</option>
                   <option value="antrean_desc">nomor antrean (↓)</option>
                   <option value="pesanan_asc">nomor pesanan (↑)</option>

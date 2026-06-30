@@ -45,8 +45,8 @@ export function subscribeAdminChatRooms(callback) {
           } else {
             avatar = `data:image/jpeg;base64,${dbAvatar}`;
           }
-        } else if (room.avatarIndex !== undefined && room.avatarIndex >= 0 && avatars[room.avatarIndex]) {
-          avatar = avatars[room.avatarIndex];
+        } else if (room.avatarIndex !== undefined && room.avatarIndex >= 0) {
+          avatar = defaultAvatarPlaceholder;
         } else if (dbUserId) {
           // Fallback: fetch profile from Firestore
           try {
@@ -57,11 +57,8 @@ export function subscribeAdminChatRooms(callback) {
               const pAvatarIdx = pData.avatar_index !== undefined ? parseInt(pData.avatar_index) : -1;
               if (pData.photoBase64) {
                 avatar = `data:image/jpeg;base64,${pData.photoBase64}`;
-              } else if (pAvatarIdx >= 0 && avatars[pAvatarIdx]) {
-                avatar = avatars[pAvatarIdx];
               } else {
-                // Use DiceBear as last resort based on name
-                avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(dbName)}&backgroundColor=b6e3f4`;
+                avatar = defaultAvatarPlaceholder;
               }
             }
           } catch (err) {

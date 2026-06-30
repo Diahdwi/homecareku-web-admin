@@ -201,25 +201,9 @@ export default function TambahPerawat({ isOpen }) {
 
             {/* Photo Selector Popover Box */}
             {showPhotoOptions && (
-              <div className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 z-20 w-[300px]">
-                <p className="font-bold text-xs text-gray-500 mb-2">Pilih Avatar Bawaan:</p>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {avatars.map((url, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleAvatarSelect(idx)}
-                      className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${
-                        formData.avatarIndex === idx && !formData.photoBase64 ? "border-[#214E8A]" : "border-transparent"
-                      }`}
-                    >
-                      <img src={url} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-                
-                <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-[#214E8A] hover:underline cursor-pointer block text-center py-1 bg-blue-50 rounded-lg">
+              <div className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl p-3 z-20 w-[180px]">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-[#214E8A] hover:underline cursor-pointer block text-center py-1.5 bg-blue-50 rounded-lg">
                     Unggah Foto Baru
                     <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                   </label>

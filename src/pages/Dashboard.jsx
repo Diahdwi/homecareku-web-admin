@@ -29,7 +29,7 @@ import {
 
 // Import Firebase milikmu untuk sinkronisasi Verifikasi
 import { db } from "../config/firebase";
-import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, getDoc, setDoc } from "firebase/firestore";
 
 ChartJS.register(
   CategoryScale,
@@ -57,6 +57,64 @@ export default function Dashboard({ isOpen }) {
   const [activeNurses, setActiveNurses] = useState([]);
   const [selectedNurses, setSelectedNurses] = useState({}); // Menyimpan pilihan per tiap pesanan
   const [allSchedules, setAllSchedules] = useState([]);
+
+  // === STATE UNTUK PENGATURAN QRIS PEMBAYARAN ===
+  const [qrisImage, setQrisImage] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null);
+
+  useEffect(() => {
+    const fetchQris = async () => {
+      try {
+        const docRef = doc(db, "settings", "payment");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setQrisImage(docSnap.data().qrCodeBase64);
+        }
+      } catch (e) {
+        console.error("Error fetching QRIS: ", e);
+      }
+    };
+    fetchQris();
+  }, []);
+
+  const handleQrisChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadStatus({ type: "error", message: "File harus berupa gambar!" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result;
+      try {
+        const docRef = doc(db, "settings", "payment");
+        await setDoc(docRef, { qrCodeBase64: base64String }, { merge: true });
+        setQrisImage(base64String);
+        setUploadStatus({ type: "success", message: "Gambar QRIS berhasil diperbarui!" });
+      } catch (err) {
+        console.error("Error saving QRIS:", err);
+        setUploadStatus({ type: "error", message: "Gagal menyimpan QRIS ke database." });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteQris = async () => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus gambar QRIS kustom dan kembali ke default?")) {
+      try {
+        const docRef = doc(db, "settings", "payment");
+        await setDoc(docRef, { qrCodeBase64: "" }, { merge: true });
+        setQrisImage(null);
+        setUploadStatus({ type: "success", message: "Gambar QRIS berhasil di-reset ke default!" });
+      } catch (err) {
+        console.error("Error deleting QRIS:", err);
+        setUploadStatus({ type: "error", message: "Gagal me-reset gambar QRIS." });
+      }
+    }
+  };
 
   // === STATE FILTER BULAN DAN TAHUN ===
   const [filterType, setFilterType] = useState("Per Minggu");
@@ -527,6 +585,8 @@ export default function Dashboard({ isOpen }) {
     }
   };
 
+  const qrisSrc = qrisImage ? (qrisImage.startsWith('data:image/') ? qrisImage : 'data:image/png;base64,' + qrisImage) : '';
+
   return (
     <div
       className={`
@@ -817,6 +877,55 @@ export default function Dashboard({ isOpen }) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      {/* PENGATURAN QRIS PEMBAYARAN */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm mt-5">
+        <h2 className="text-2xl font-bold mb-4 text-[#1B2559]">
+          Pengaturan QRIS Pembayaran
+        </h2>
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="border border-gray-200 p-4 rounded-2xl bg-gray-50 flex items-center justify-center w-[200px] h-[200px]">
+            {qrisImage ? (
+              <img
+                src={qrisSrc}
+                alt="QRIS Pembayaran"
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <div className="text-gray-400 text-sm text-center">Belum ada gambar QRIS. Menggunakan default aplikasi.</div>
+            )}
+          </div>
+          <div className="flex-1 flex flex-col gap-3 w-full">
+            <p className="text-gray-500 text-sm">
+              Unggah gambar QR Code / QRIS baru untuk mengganti kode pembayaran statis yang ditampilkan pada aplikasi Pasien & Perawat.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <label className="bg-[#214E8A] hover:bg-[#1B2559] text-white text-sm font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition-all shadow-sm text-center">
+                Pilih Gambar QRIS
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQrisChange}
+                  className="hidden"
+                />
+              </label>
+              {qrisImage && (
+                <button
+                  onClick={handleDeleteQris}
+                  className="border border-red-500 text-red-500 hover:bg-red-50 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
+                >
+                  Hapus & Reset ke Default
+                </button>
+              )}
+            </div>
+            {uploadStatus && (
+              <span className={uploadStatus.type === 'success' ? 'text-sm text-green-600' : 'text-sm text-red-600'}>
+                {uploadStatus.message}
+              </span>
+            )}
           </div>
         </div>
       </div>

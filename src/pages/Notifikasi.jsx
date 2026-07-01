@@ -254,7 +254,13 @@ export default function Notifikasi({ isOpen }) {
     
     return allSchedules.some(schedule => {
       if (schedule.id_perawat !== nurseId) return false;
-      if (schedule.status === "Ditolak" || schedule.status_detail === "Ditolak" || schedule.status_detail === "Selesai") return false;
+      if (
+        schedule.status === "Ditolak" || 
+        schedule.status_detail === "Ditolak" || 
+        schedule.status_detail === "Selesai" ||
+        schedule.status === "Dibatalkan" ||
+        schedule.status_detail === "Dibatalkan"
+      ) return false;
       
       const schedDate = schedule.tanggal_booking?.toDate ? schedule.tanggal_booking.toDate() : new Date(schedule.tanggal_booking);
       const schedDateStr = schedDate.toDateString();

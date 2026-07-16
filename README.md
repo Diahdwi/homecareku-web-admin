@@ -42,3 +42,29 @@ src/
 │   └── Transaksi.jsx     # Riwayat pembukuan/transaksi
 ├── App.jsx
 └── main.jsx
+
+## 👥 Tim Pengembang
+
+| Nama | NIM | Peran |
+| :--- | :--- | :--- |
+| Abyan Faza Nariswangga | 4.33.24.2.01 | Full-Stack Developer |
+| Diah Dwi Astuti  | 4.33.24.2.07 | Full-Stack Developer |
+| Izza Baghuz Syafi'i Ma'arif | 4.33.24.2.11 | Full-Stack Developer |
+| Zalfa Az Zahra | 4.33.24.2.24 | Full-Stack Developer |
+
+---
+
+## 👨‍🏫 Dosen Pembimbing
+
+*   **Suko Tyas Pernanda, S.ST., M.Cs** (Dosen Pembimbing Utama)
+*   **Wiktasari, S.T., M.Kom** (Dosen Pembimbing Pendamping)
+
+---
+
+<div align="center">
+  <b>PBL Kelompok 6 — Homecareku</b><br>
+  Program Studi D4 Teknologi Rekayasa Komputer<br>
+  Jurusan Elektro<br>
+  Politeknik Negeri Semarang<br>
+  Semester Genap 2025/2026
+</div>

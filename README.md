@@ -62,7 +62,7 @@ src/
 ---
 
 <div align="center">
-  <b>PBL Kelompok 6 — Homecareku</b><br>
+  <b>PBL Kelompok 4 — Homecareku</b><br>
   Program Studi D4 Teknologi Rekayasa Komputer<br>
   Jurusan Elektro<br>
   Politeknik Negeri Semarang<br>
